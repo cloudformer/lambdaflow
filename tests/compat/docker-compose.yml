@@ -1,0 +1,21 @@
+# The real service for the compatibility tests. All three are defined; only the one you name starts:
+#   docker compose -f tests/compat/docker-compose.yml up -d <TEST_CONTAINER>
+#   <TEST_DSN> python3 -m pytest tests -q
+#   docker compose -f tests/compat/docker-compose.yml down
+name: project-compat   # unique per project, so the series' compat containers never mix
+services:
+  mysql:
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    environment: { MYSQL_ROOT_PASSWORD: test, MYSQL_DATABASE: compat }
+    ports: ["3306:3306"]
+    healthcheck: { test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-ptest"], interval: 5s, retries: 20 }
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 2s, retries: 20 }
+  postgres:
+    image: postgres:16
+    environment: { POSTGRES_PASSWORD: test, POSTGRES_DB: compat }
+    ports: ["5433:5432"]   # 5433: 5432 is often taken by a local PostgreSQL
+    healthcheck: { test: ["CMD", "pg_isready", "-U", "postgres"], interval: 2s, retries: 20 }

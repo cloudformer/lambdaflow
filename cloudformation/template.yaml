@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  <project> - a truly serverless <replaces>: Lambda Function URL endpoint + console, <built on>,
+  ~$0 when idle. Same resources as terraform/main.tf.
+
+# Deploy (AWS CLI only):
+#   aws cloudformation package --template-file cloudformation/template.yaml \
+#       --s3-bucket <any-bucket-you-own> --output-template-file /tmp/<project>.yaml
+#   aws cloudformation deploy --template-file /tmp/<project>.yaml --stack-name <project> \
+#       --capabilities CAPABILITY_IAM --parameter-overrides file://cloudformation/params.json
+
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+  UserName:
+    Type: String
+    Default: admin
+    Description: The service's user (HTTP Basic)
+  Password:
+    Type: String
+    NoEcho: true
+  EndpointAuth:
+    Type: String
+    Default: NONE
+    AllowedValues: [NONE, AWS_IAM]
+    Description: NONE = public URL, only user/password is checked. AWS_IAM = SigV4 + IAM first (no browser console).
+  Console:
+    Type: String
+    Default: "1"
+    AllowedValues: ["1", "0"]
+    Description: Serve the built-in web console at GET / ("0" = API only)
+
+Conditions:
+  PublicEndpoint: !Equals [!Ref EndpointAuth, NONE]
+
+Resources:
+  # ---------------- the project's AWS primitive(s) go here ----------------
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: least-privilege
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents]
+                Resource: arn:aws:logs:*:*:*
+              # - Effect: Allow
+              #   Action: [dynamodb:GetItem, ...]
+              #   Resource: !GetAtt Table.Arn
+
+  Server:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-lambda"
+      Runtime: python3.12
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt LambdaRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      Code: ../src/server
+      Environment:
+        Variables:
+          USER_NAME: !Ref UserName
+          PASSWORD: !Ref Password
+          CONSOLE: !Ref Console
+
+  ServerUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !GetAtt Server.Arn
+      AuthType: !Ref EndpointAuth
+      Cors:
+        AllowOrigins: ["*"]
+        AllowMethods: ["*"]
+        AllowHeaders: [content-type, authorization]
+
+  ServerUrlPermission:
+    Type: AWS::Lambda::Permission
+    Condition: PublicEndpoint
+    Properties:
+      FunctionName: !Ref Server
+      Action: lambda:InvokeFunctionUrl
+      Principal: "*"
+      FunctionUrlAuthType: NONE
+
+  ServerInvokePermission:
+    Type: AWS::Lambda::Permission
+    Condition: PublicEndpoint
+    Properties:
+      FunctionName: !Ref Server
+      Action: lambda:InvokeFunction
+      Principal: "*"
+      InvokedViaFunctionUrl: true
+
+Outputs:
+  ConsoleUrl:
+    Value: !GetAtt ServerUrl.FunctionUrl

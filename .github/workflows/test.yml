@@ -1,0 +1,17 @@
+name: tests
+# Every push. The logic lives in cloudformer/redefine-aws-serverless-workflow (public, so public projects can call it); change it there once.
+# Project: fill the three values, e.g.
+#   install: "pytest boto3 pymysql sqlglot"
+#   compose-service: "mysql"            (a service in tests/compat/docker-compose.yml)
+#   test-env: "MYSQL_DSN=mysql://root:test@127.0.0.1:3306/compat"
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    uses: cloudformer/redefine-aws-serverless-workflow/.github/workflows/reusable-test.yml@main
+    with:
+      install: "pytest boto3"
+      compose-service: ""
+      test-env: ""

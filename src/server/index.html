@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>&lt;project&gt; console</title>
+<style>
+/* 风格参考 Automation_Delivery_EaC 的 db 页面 */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  min-height: 100vh;
+  padding: 40px 20px;
+}
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 15px;
+  padding: 40px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+h1 { color: #333; margin-bottom: 10px; }
+/* 顶部信息行:Endpoint 固定在前,Database 在后(定宽,切库不抖),退出靠右 */
+.db-info {
+  display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+  margin: 6px 0 24px; font-size: 13px;
+}
+.db-info .meta { display: inline-flex; align-items: center; gap: 8px; }
+.db-info .k {
+  font-size: 11px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: #9ca3af;
+}
+.chip {
+  background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px;
+  padding: 4px 10px; color: #374151; font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+/* 定宽,像 format 的固定列:内容长短变化不影响后面元素的位置 */
+#info-db { width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 输出日志(DataGrip 风格) */
+.log {
+  background: #1f2937; color: #d1d5db; border-radius: 8px;
+  padding: 10px 14px; margin: 12px 0 0; max-height: 200px; overflow: auto;
+  font: 12px/1.7 ui-monospace, 'Courier New', monospace; white-space: pre-wrap;
+}
+.log:empty { display: none; }
+.log.expanded { max-height: 360px; }
+.log .sep { border-top: 1px dashed #4b5563; margin: 6px 0; }
+.log .sql { color: #93c5fd; }
+.log .ok  { color: #86efac; }
+.log .err { color: #fca5a5; }
+
+/* Controls */
+.controls { display: flex; gap: 15px; margin: 20px 0; flex-wrap: wrap; align-items: center; }
+.controls label { font-size: 14px; font-weight: 600; color: #4b5563; }
+.controls select {
+  padding: 10px 15px; border: 2px solid #e5e7eb; border-radius: 6px;
+  font-size: 14px; min-width: 180px; background: white;
+}
+.btn {
+  padding: 10px 20px; border: none; border-radius: 6px;
+  font-weight: 600; cursor: pointer; transition: all .3s; font-size: 14px;
+}
+.btn-primary   { background: #10b981; color: white; }
+.btn-primary:hover { background: #059669; }
+.btn-secondary { background: #667eea; color: white; }
+.btn-secondary:hover { background: #5568d3; }
+.btn-ghost { background: white; color: #374151; border: 2px solid #e5e7eb; }
+.btn-ghost:hover { border-color: #667eea; color: #667eea; }
+.btn-danger {
+  background: #ef4444; color: white; padding: 5px 10px;
+  border: none; border-radius: 4px; cursor: pointer; font-size: 12px;
+}
+.btn-danger:hover { background: #dc2626; }
+.btn-small { padding: 5px 10px; font-size: 12px; border-radius: 4px; }
+
+/* Table section */
+.table-section {
+  margin: 30px 0; border: 2px solid #e5e7eb; border-radius: 10px;
+  padding: 20px; background: #f8fafc;
+}
+.table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.table-name { font-size: 22px; font-weight: 600; color: #1f2937; }
+.row-count {
+  background: #10b981; color: white; padding: 6px 15px;
+  border-radius: 20px; font-size: 14px; font-weight: 600;
+}
+.section-title {
+  font-size: 16px; font-weight: 600; color: #4b5563; margin: 20px 0 10px 0;
+  display: flex; align-items: center; gap: 10px;
+}
+table {
+  width: 100%; border-collapse: collapse; background: white;
+  border-radius: 8px; overflow: hidden; margin-bottom: 20px;
+}
+th {
+  background: #374151; color: white; padding: 12px; text-align: left;
+  font-weight: 600; font-size: 14px; white-space: nowrap;
+}
+td {
+  padding: 10px 12px; border-bottom: 1px solid #e5e7eb;
+  font-size: 14px; color: #374151; max-width: 420px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #f9fafb; }
+td.null { color: #9ca3af; font-style: italic; }
+td input {
+  width: 100%; min-width: 80px; padding: 6px 8px;
+  border: 2px solid #e5e7eb; border-radius: 4px; font-size: 13px;
+}
+
+/* Add form */
+.add-form {
+  background: #f0fdf4; border: 2px solid #10b981; border-radius: 8px;
+  padding: 20px; margin: 20px 0;
+}
+.add-form h3 { color: #065f46; margin-bottom: 15px; font-size: 18px; }
+.form-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 15px; margin-bottom: 15px;
+}
+.form-field label {
+  display: block; font-size: 13px; font-weight: 600;
+  color: #374151; margin-bottom: 5px;
+}
+.form-field input {
+  width: 100%; padding: 8px; border: 2px solid #e5e7eb;
+  border-radius: 4px; font-size: 14px;
+}
+.form-field small { color: #6b7280; font-size: 12px; }
+
+/* Pagination */
+.pagination { display: flex; gap: 10px; justify-content: center; align-items: center; margin: 20px 0 0; }
+.pagination button, .pagination span {
+  padding: 8px 12px; border-radius: 6px; font-size: 14px;
+  color: #374151; background: white; border: 2px solid #e5e7eb;
+}
+.pagination button { cursor: pointer; }
+.pagination button:hover:not(:disabled) { background: #667eea; color: white; border-color: #667eea; }
+.pagination button:disabled { opacity: .5; cursor: not-allowed; }
+.pagination .current { background: #667eea; color: white; border-color: #667eea; font-weight: 600; }
+
+.empty { padding: 40px; text-align: center; color: #9ca3af; }
+
+/* SQL console */
+.sql-section {
+  margin: 20px 0; border: 2px solid #e5e7eb; border-radius: 10px;
+  padding: 20px; background: #f8fafc;
+}
+.sql-section textarea {
+  width: 100%; height: 90px; resize: vertical; padding: 12px;
+  border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;
+  font-family: ui-monospace, 'Courier New', monospace;
+}
+.sql-actions { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+.hint { font-size: 12px; color: #6b7280; }
+
+/* 页内模态框(不用浏览器 prompt,避免被"阻止对话框"机制吞掉) */
+dialog {
+  border: none; border-radius: 10px; padding: 25px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.3); min-width: 340px; max-width: 90vw;
+  position: fixed; inset: 0; margin: auto;   /* centred in the viewport, whatever the page scroll */
+}
+dialog::backdrop { background: rgba(0,0,0,.4); }
+dialog h3 { margin-bottom: 15px; color: #1f2937; font-size: 17px; }
+dialog .form-grid { grid-template-columns: 1fr; }
+@media (max-width: 640px){ .container { padding: 20px; } body { padding: 16px; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>⚡ &lt;project&gt; console</h1>
+  <div class="db-info">
+    <span class="meta"><span class="k">Endpoint</span><span class="chip" id="info-host">-</span></span>
+    <button class="btn btn-ghost btn-small" id="logout">sign out</button>
+  </div>
+
+  <!-- template: the command box. Every project has one: SQL, redis commands, a DAG trigger, a message... -->
+  <div class="sql-section">
+    <div class="section-title">Command</div>
+    <textarea id="cmd" placeholder="e.g. ping"></textarea>
+    <div class="sql-actions">
+      <button class="btn btn-primary" id="run">▶ Run</button>
+      <span class="hint">⌘/Ctrl+Enter runs</span>
+      <span style="flex:1"></span>
+      <button class="btn btn-ghost btn-small" id="togglelog">history</button>
+    </div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <!-- template: the project's views (lists, tables, detail panes) render into #main -->
+  <div id="main"></div>
+</div>
+
+<dialog id="dlg">
+  <form method="dialog">
+    <h3 id="dlgtitle"></h3>
+    <div class="form-grid" id="dlgbody"></div>
+    <div class="sql-actions">
+      <button class="btn btn-primary" value="ok">OK</button>
+      <button class="btn btn-ghost" value="cancel" formnovalidate>Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+// ---------------- shared shell: credentials, dialog, log, api() ----------------
+const $ = s => document.querySelector(s);
+const KEY = '<project>_';                       // localStorage prefix: only the credential is kept
+const store = {
+  get: k => { try { return localStorage.getItem(KEY + k); } catch(e){ return null; } },
+  set: (k, v) => { try { v == null ? localStorage.removeItem(KEY + k) : localStorage.setItem(KEY + k, v); } catch(e){} },
+};
+let cred = store.get('cred') || '';
+function saveCred(c){ cred = c; store.set('cred', c || null); }
+$('#info-host').textContent = location.host;
+
+// in-page dialog (browsers suppress prompt() inside Lambda URL pages)
+function dialog(title, fields){
+  return new Promise(resolve => {
+    $('#dlgtitle').textContent = title;
+    $('#dlgbody').innerHTML = fields.map(f =>
+      `<label>${f.label}</label><input name="${f.name}" type="${f.type || 'text'}" value="${f.value || ''}" ${f.required ? 'required' : ''}>`).join('');
+    const d = $('#dlg');
+    d.onclose = () => resolve(d.returnValue === 'ok' ? Object.fromEntries(new FormData(d.querySelector('form'))) : null);
+    d.showModal();
+    const first = d.querySelector('input'); if (first) first.focus();
+  });
+}
+async function askCred(){
+  const r = await dialog('Sign in', [{label: 'user', name: 'u', required: true}, {label: 'password', name: 'p', type: 'password', required: true}]);
+  if (!r) return false;
+  saveCred(btoa(r.u + ':' + r.p));
+  return true;
+}
+
+// log pane: one line per call, with the server's own timing
+const logLines = [];
+let logOpen = false;
+function ts(){ return new Date().toISOString().replace('T', ' ').slice(0, 19); }
+function log(text, cls){ logLines.push({text, cls}); renderLog(); }
+function renderLog(){
+  const el = $('#log');
+  const lines = logOpen ? logLines : logLines.slice(-3);
+  el.innerHTML = lines.map(l => `<div class="${l.cls || ''}">${esc(l.text)}</div>`).join('');
+  el.scrollTop = el.scrollHeight;
+}
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+$('#togglelog').onclick = () => { logOpen = !logOpen; renderLog(); };
+
+// every API call goes through here: Basic auth, 401 -> sign in again, errors -> log
+async function api(path, opts = {}){
+  if (!cred && !(await askCred())) throw new Error('not signed in');
+  const r = await fetch(path, Object.assign({}, opts, {
+    headers: Object.assign({'content-type': 'application/json', 'authorization': 'Basic ' + cred}, opts.headers || {})}));
+  if (r.status === 401){ saveCred(''); if (await askCred()) return api(path, opts); throw new Error('not signed in'); }
+  const data = await r.json().catch(() => ({error: 'bad response'}));
+  if (!r.ok){ log(`[${ts()}] ${data.error || r.status}`, 'err'); throw new Error(data.error || r.status); }
+  return data;
+}
+$('#logout').onclick = () => { saveCred(''); location.reload(); };
+
+// ---------------- the project's part: run a command, render views into #main ----------------
+async function run(){
+  const cmd = $('#cmd').value.trim();
+  if (!cmd) return;
+  log(`> ${cmd}`, 'sql');
+  const t0 = performance.now();
+  const data = await api('/api/' + cmd);                      // example: "ping" -> GET /api/ping
+  log(`[${ts()}] ${JSON.stringify(data)} (${Math.round(performance.now() - t0)} ms, server ${data.ms} ms)`, 'ok');
+  render();
+}
+$('#run').onclick = run;
+$('#cmd').addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') run(); });
+
+async function render(){
+  const data = await api('/api/items');
+  $('#main').innerHTML = `<div class="section-title">Items</div><table><tr><th>name</th></tr>` +
+    data.items.map(i => `<tr><td>${esc(i.name)}</td></tr>`).join('') + `</table>`;
+}
+render().catch(() => {});
+</script>
+</body>
+</html>

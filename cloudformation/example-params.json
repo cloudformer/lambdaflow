@@ -1,0 +1,7 @@
+[
+  { "ParameterKey": "Env",          "ParameterValue": "dev" },
+  { "ParameterKey": "UserName",     "ParameterValue": "admin" },
+  { "ParameterKey": "Password",     "ParameterValue": "CHANGE-ME" },
+  { "ParameterKey": "EndpointAuth", "ParameterValue": "NONE" },
+  { "ParameterKey": "Console",      "ParameterValue": "1" }
+]

@@ -1,0 +1,14 @@
+{
+  "region": "us-east-2",
+  "aws_profile": "default",
+  "assume_role_arn": "",
+
+  "env": "dev",
+  "name": "<project>",
+
+  "user": "admin",
+  "password": "CHANGE-ME",
+
+  "endpoint_auth": "NONE",
+  "console": true
+}

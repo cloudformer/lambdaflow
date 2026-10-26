@@ -1,0 +1,16 @@
+name: publish
+# git tag vX.Y.Z && git push --tags -> tests -> build client/ -> PyPI (trusted publishing).
+# The logic lives in cloudformer/redefine-aws-serverless-workflow. Same three values as test.yml.
+on:
+  push:
+    tags: ["v*"]
+jobs:
+  publish:
+    permissions:
+      id-token: write   # the called workflow may publish with trusted publishing
+    uses: cloudformer/redefine-aws-serverless-workflow/.github/workflows/reusable-publish.yml@main
+    with:
+      install: "pytest boto3"
+      compose-service: ""
+      test-env: ""
+    secrets: inherit
