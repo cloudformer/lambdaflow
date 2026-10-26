@@ -12,6 +12,6 @@ jobs:
   test:
     uses: cloudformer/redefine-aws-serverless-workflow/.github/workflows/reusable-test.yml@main
     with:
-      install: "pytest boto3"
+      install: "pytest boto3 moto"
       compose-service: ""
       test-env: ""

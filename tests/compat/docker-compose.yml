@@ -2,7 +2,7 @@
 #   docker compose -f tests/compat/docker-compose.yml up -d <TEST_CONTAINER>
 #   <TEST_DSN> python3 -m pytest tests -q
 #   docker compose -f tests/compat/docker-compose.yml down
-name: project-compat   # unique per project, so the series' compat containers never mix
+name: lambdaflow-compat   # unique per project, so the series' compat containers never mix
 services:
   mysql:
     image: mysql:8.0

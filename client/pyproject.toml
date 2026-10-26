@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "project"           # <project>: repo = pip = import name
+name = "lambdaflow"           # <project>: repo = pip = import name
 version = "0.1.0"
 description = "A truly serverless <replaces> on your own AWS account: <built on>, ≈ $0 when idle. Client named after the standard one: <project>.<client>."
 readme = "README.md"
@@ -28,4 +28,4 @@ Changelog = "https://github.com/cloudformer/<project>/blob/main/CHANGELOG.md"
 Issues = "https://github.com/cloudformer/<project>/issues"
 
 [tool.setuptools]
-packages = ["project"]     # rename the directory client/project/ to client/<project>/
+packages = ["lambdaflow"]     # rename the directory client/project/ to client/<project>/
