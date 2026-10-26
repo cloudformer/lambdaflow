@@ -1,0 +1,38 @@
+{
+ "state": "success",
+ "tasks": {
+  "choose": [
+   "success",
+   1
+  ],
+  "join": [
+   "success",
+   1
+  ],
+  "left": [
+   "success",
+   1
+  ],
+  "never": [
+   "skipped",
+   0
+  ],
+  "never_either": [
+   "skipped",
+   0
+  ],
+  "right": [
+   "skipped",
+   0
+  ],
+  "stop": [
+   "success",
+   1
+  ],
+  "strict_join": [
+   "skipped",
+   0
+  ]
+ },
+ "xcom": {}
+}

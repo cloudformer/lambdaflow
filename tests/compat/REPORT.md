@@ -1,20 +1,22 @@
-# <project> compatibility report · [tasks](TASKS.md)
+# lambdaflow compatibility report · [tasks](TASKS.md)
 
-Generated 2026-10-25 by `pytest tests` · <project> 0.1.0 · Python 3.13.7
+Not generated yet: the lambdaflow side of the comparison arrives in phase 2. This file is rewritten by the
+first test run in which lambdaflow executes a DAG.
 
-Each row is one feature exercised the same way on the reference and on the project; results, types and errors must match. The feature list only grows (a removed case would show in git), so the support percentage can only move up.
+Reference: Apache Airflow 3.3.1 (Docker, `tests/compat/docker-compose.yml`, service `airflow`). What Airflow
+does for each feature is already recorded in [expected/](expected/) — one JSON per test: the run's state,
+every task's (state, try number) and every XCom value.
 
-Whole test run: **3 passed**, 0 failed, 0 expected failures (known gaps), 0 skipped — regression suite (`tests/`) and compatibility suite (`tests/compat/`) together.
-
-Open tasks: none — see [TASKS.md](TASKS.md).
-
-## <project>.<client> vs <replaces> — reference: <replaces> (not run)
-
-**Support 100%** (1 / 1 features) · 1 verified
-
-✅ verified · ❌ gap — known difference, the note names the task that closes it · ⚪ quirk — documented, deliberately not aligned · ⛔ unsupported by design, refused with NotSupportedError · 🟡 fixed — xfail marker to remove · 🔴 regression · ⏭ not run
-
-| Feature | Status | Note |
-|---|---|---|
-| **Basics** | | |
-| ping | ✅ |  |
+| Feature | Status |
+|---|---|
+| **DAGs** | |
+| a >> b >> c with PythonOperator, XCom pulled downstream | ⏭ |
+| fan-out / fan-in: a >> [b, c] >> d, xcom_pull of a task list | ⏭ |
+| TaskFlow @dag / @task, return values as arguments, multiple_outputs | ⏭ |
+| **Execution** | |
+| retries and retry_delay: succeeds on try 3; exhausts retries and fails | ⏭ |
+| every trigger_rule after a failed and a successful upstream; upstream_failed propagation | ⏭ |
+| @task.branch skips the other path; join rules; ShortCircuitOperator skips downstream | ⏭ |
+| params overridden by the trigger's conf pick the other branch | ⏭ |
+| **Templates** | |
+| {{ ds }}, {{ ds_nodash }}, params, dag_run.conf, macros.ds_add, logical_date; Bash stdout as XCom | ⏭ |

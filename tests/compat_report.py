@@ -13,15 +13,15 @@ import platform
 import re
 
 CONFIG = {
-    "title": "<project> compatibility report",
+    "title": "lambdaflow compatibility report",
     "report": os.path.join(os.path.dirname(__file__), "compat", "REPORT.md"),
     # (key, section title, substring of the test file name, reference description or callable)
     "suites": [
-        ("reference", "<project>.<client> vs <replaces>", "test_reference",
-         lambda: versions.get("reference") or "<replaces> (not run)"),
+        ("airflow", "lambdaflow vs Airflow", "test_airflow",
+         lambda: versions.get("airflow") or "Apache Airflow 3.3 (not run)"),
     ],
     "version": lambda: os.environ["PACKAGE"] + " " + __import__(os.environ["PACKAGE"]).__version__,
-    "categories": ["Basics", "Data", "Queries", "Errors", "Metadata", "Unsupported", "General"],
+    "categories": ["DAGs", "Execution", "Templates", "Scheduling", "Variables", "Unsupported", "General"],
 }
 
 features = {}   # nodeid -> {"suite", "feature", "gap", "unsupported", "quirk", "fail"}
@@ -87,7 +87,8 @@ def pytest_runtest_logreport(report):
             "gap" if report.outcome == "skipped" and xfail else
             "fixed" if report.outcome == "passed" and xfail else
             "unsupported" if report.outcome == "passed" and features[report.nodeid]["unsupported"] else
-            "verified" if report.outcome == "passed" else "regression")
+            "verified" if report.outcome == "passed" else
+            "not run" if report.outcome == "skipped" else "regression")   # pytest.skip() inside the test body
 
 
 def _open_tasks():

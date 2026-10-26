@@ -1,0 +1,58 @@
+{
+ "state": "failed",
+ "tasks": {
+  "after_upstream_failed": [
+   "upstream_failed",
+   0
+  ],
+  "all_done": [
+   "success",
+   1
+  ],
+  "all_failed": [
+   "skipped",
+   0
+  ],
+  "all_success": [
+   "upstream_failed",
+   0
+  ],
+  "always": [
+   "success",
+   1
+  ],
+  "bad": [
+   "failed",
+   1
+  ],
+  "child_of_bad": [
+   "upstream_failed",
+   0
+  ],
+  "none_failed": [
+   "upstream_failed",
+   0
+  ],
+  "none_failed_min_one_success": [
+   "upstream_failed",
+   0
+  ],
+  "none_skipped": [
+   "success",
+   1
+  ],
+  "ok": [
+   "success",
+   1
+  ],
+  "one_failed": [
+   "success",
+   1
+  ],
+  "one_success": [
+   "success",
+   1
+  ]
+ },
+ "xcom": {}
+}

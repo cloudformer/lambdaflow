@@ -1,0 +1,22 @@
+{
+ "state": "success",
+ "tasks": {
+  "a": [
+   "success",
+   1
+  ],
+  "b": [
+   "success",
+   1
+  ],
+  "c": [
+   "success",
+   1
+  ]
+ },
+ "xcom": {
+  "a.return_value": 1,
+  "b.return_value": 2,
+  "c.return_value": 20
+ }
+}

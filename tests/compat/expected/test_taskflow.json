@@ -1,0 +1,36 @@
+{
+ "state": "success",
+ "tasks": {
+  "extract": [
+   "success",
+   1
+  ],
+  "load": [
+   "success",
+   1
+  ],
+  "split": [
+   "success",
+   1
+  ]
+ },
+ "xcom": {
+  "extract.return_value": {
+   "a": 1,
+   "b": 2
+  },
+  "load.return_value": "3:a,b",
+  "split.keys": [
+   "a",
+   "b"
+  ],
+  "split.return_value": {
+   "keys": [
+    "a",
+    "b"
+   ],
+   "total": 3
+  },
+  "split.total": 3
+ }
+}

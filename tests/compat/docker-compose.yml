@@ -1,4 +1,4 @@
-# The real service for the compatibility tests. All three are defined; only the one you name starts:
+# The real service for the compatibility tests. All are defined; only the one you name starts (lambdaflow: airflow):
 #   docker compose -f tests/compat/docker-compose.yml up -d <TEST_CONTAINER>
 #   <TEST_DSN> python3 -m pytest tests -q
 #   docker compose -f tests/compat/docker-compose.yml down
@@ -19,3 +19,23 @@ services:
     environment: { POSTGRES_PASSWORD: test, POSTGRES_DB: compat }
     ports: ["5433:5432"]   # 5433: 5432 is often taken by a local PostgreSQL
     healthcheck: { test: ["CMD", "pg_isready", "-U", "postgres"], interval: 2s, retries: 20 }
+  airflow:
+    # the reference for lambdaflow: the same version as the newest MWAA (3.3.1), all-in-one `standalone`
+    image: apache/airflow:3.3.1
+    # the api-server appends to the passwords file, so it is written inside the container, not mounted
+    command: ["bash", "-c", "echo '{\"admin\": \"admin\"}' > /opt/airflow/passwords.json && exec airflow standalone"]
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "False"
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "admin:admin"
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE: /opt/airflow/passwords.json
+      AIRFLOW__DAG_PROCESSOR__REFRESH_INTERVAL: "5"        # pick up new DAG files within seconds
+      AIRFLOW__DAG_PROCESSOR__MIN_FILE_PROCESS_INTERVAL: "5"
+      AIRFLOW__SCHEDULER__TASK_QUEUED_TIMEOUT: "120"
+    volumes:
+      - ./dags:/opt/airflow/dags:ro
+    ports: ["8088:8080"]   # 8088: 8080 is often taken
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/v2/monitor/health')"]
+      interval: 5s
+      retries: 60

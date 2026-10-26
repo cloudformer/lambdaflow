@@ -1,94 +1,186 @@
-"""Compatibility harness: the same operations on the real <replaces> (Docker) and on the project, compared.
+"""Compatibility harness: the same DAG run on a real Airflow (Docker) and on lambdaflow, outcomes compared.
 
-Template. Keep the shape: a `real_<ref>` fixture that skips without the DSN env var (or runs the project
-side only with COMPAT_DRY=1), an `ours` fixture that calls the server in-process, and a `pair` fixture
-whose `run(steps)` executes each step on both sides and asserts the outcomes are equal. A test is one
-feature; its docstring "Category | Feature | note" is the report row.
+A test is one feature; its docstring "Category | Feature | note" is the report row. `pair.dag(dag_id, ...)`
+triggers one run of tests/compat/dags/<dag_id>.py on both sides and asserts the outcomes are equal:
+the run's state, every task's (state, try_number) and every XCom value. Wall-clock order is not compared
+(parallel tasks may finish in any order); instead each side is checked to respect the dependencies.
+
+Real side: AIRFLOW_URL=http://admin:admin@127.0.0.1:8088 (tests/compat/docker-compose.yml, service
+airflow). Each real outcome is also written to tests/compat/expected/<test name>.json, so what Airflow does
+is visible in git and in review. COMPAT_DRY=1 runs without Docker (lambdaflow side only).
 """
-import base64
+import datetime
 import json
 import os
-from dataclasses import dataclass
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 
 import pytest
 
-import lambda_function as lf
 import compat_report
-import importlib
-ours_client = importlib.import_module(os.environ["PACKAGE"] + ".client")   # <package>.<client>; rename `client` with the submodule
 
-AUTH = "Basic " + base64.b64encode(b"admin:pw").decode()
-
-
-@dataclass
-class Outcome:
-    value: object          # the operation's result, normalised to plain Python
-    error: object = None   # (class name, code) when it raised
+HERE = os.path.dirname(os.path.abspath(__file__))
+LOGICAL_DATE = "2026-01-01T00:00:00Z"   # fixed, so templated values ({{ ds }}) are comparable
+DONE = {"success", "failed"}
 
 
-def run_step(conn, op):
-    """op = (method name, args). Normalise the result so both sides compare equal when they agree."""
-    name, args = op[0], op[1:]
-    try:
-        return Outcome(getattr(conn, name)(*args))
-    except Exception as e:  # noqa: BLE001 - we compare whatever each side raises
-        code = e.args[0] if e.args and isinstance(e.args[0], int) else None
-        return Outcome(None, (type(e).__name__, code))
+class Airflow:
+    """The Airflow 3 REST API (/api/v2, JWT from /auth/token), standard library only."""
 
+    def __init__(self, url):
+        u = urllib.parse.urlsplit(url)
+        self.base = f"{u.scheme}://{u.hostname}:{u.port or 80}"
+        self.user, self.password = u.username or "admin", u.password or "admin"
+        self.token = None
 
-@pytest.fixture
-def real():
-    dsn = os.environ.get("REFERENCE_DSN")          # e.g. REDIS_URL=redis://127.0.0.1:6379/0
-    if not dsn and os.environ.get("COMPAT_DRY"):
-        return None                                # dry run: project side only, print what it does
-    if not dsn:
-        pytest.skip("set REFERENCE_DSN (see tests/compat/docker-compose.yml) to run against the real service")
-    client = pytest.importorskip("<client>")       # the real client library
-    conn = client.connect(dsn)                     # <- adapt
-    compat_report.versions["reference"] = "<replaces> <version> (Docker)"   # <- query it once
-    return conn
+    def _req(self, method, path, body=None, auth=True):
+        headers = {"Content-Type": "application/json"}
+        if auth:
+            headers["Authorization"] = "Bearer " + self._token()
+        req = urllib.request.Request(self.base + path, method=method, headers=headers,
+                                     data=json.dumps(body).encode() if body is not None else None)
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                raw = r.read()
+                return r.status, json.loads(raw) if raw else None
+        except urllib.error.HTTPError as e:
+            raw = e.read()
+            try:
+                return e.code, json.loads(raw)
+            except ValueError:
+                return e.code, raw.decode(errors="replace")
 
+    def _token(self):
+        if self.token is None:
+            status, data = self._req("POST", "/auth/token", {"username": self.user, "password": self.password}, auth=False)
+            if status >= 300 or not isinstance(data, dict) or "access_token" not in data:
+                raise RuntimeError(f"Airflow login failed ({status}): {data}")
+            self.token = data["access_token"]
+        return self.token
 
-@pytest.fixture
-def ours(monkeypatch):
-    """The project's client with its HTTP layer calling the Lambda handler in-process."""
-    c = ours_client.connect(host="in-process.test", user="admin", password="pw")
-
-    def call(method, path, payload=None):
-        event = {"requestContext": {"http": {"method": method}}, "rawPath": path,
-                 "headers": {"authorization": AUTH}, "body": json.dumps(payload) if payload is not None else None}
-        resp = lf.lambda_handler(event, None)
-        data = json.loads(resp["body"])
-        if resp["statusCode"] >= 400:
-            raise ours_client.Error(resp["statusCode"], data.get("error", ""))
+    def get(self, path):
+        status, data = self._req("GET", path)
+        if status >= 300:
+            raise RuntimeError(f"GET {path} -> {status}: {data}")
         return data
 
-    monkeypatch.setattr(c, "_call", call)
-    return c
+    def version(self):
+        return self.get("/api/v2/version")["version"]
+
+    def wait_parsed(self, dag_id, timeout=120):
+        """The DAG file is picked up by the dag processor within seconds; an import error fails at once."""
+        end = time.time() + timeout
+        while time.time() < end:
+            status, _ = self._req("GET", f"/api/v2/dags/{dag_id}")
+            if status == 200:
+                return
+            for e in self.get("/api/v2/importErrors").get("import_errors", []):
+                if e.get("filename", "").endswith(f"/{dag_id}.py"):
+                    raise RuntimeError(f"Airflow could not import {dag_id}.py:\n{e.get('stack_trace')}")
+            time.sleep(2)
+        raise RuntimeError(f"DAG {dag_id} not parsed after {timeout}s")
+
+    def run(self, dag_id, conf=None, logical_date=LOGICAL_DATE, timeout=300):
+        """Trigger one run and wait for it; returns the normalised outcome."""
+        self.wait_parsed(dag_id)
+        for r in self.get(f"/api/v2/dags/{dag_id}/dagRuns?limit=100").get("dag_runs", []):   # runs left by an earlier test run
+            self._req("DELETE", f"/api/v2/dags/{dag_id}/dagRuns/{urllib.parse.quote(r['dag_run_id'])}")
+        self._req("PATCH", f"/api/v2/dags/{dag_id}", {"is_paused": False})
+        run_id = f"compat__{int(time.time() * 1000)}"
+        status, data = self._req("POST", f"/api/v2/dags/{dag_id}/dagRuns",
+                                 {"dag_run_id": run_id, "logical_date": logical_date, "conf": conf or {}})
+        if status >= 300:
+            raise RuntimeError(f"trigger {dag_id} -> {status}: {data}")
+        rid = urllib.parse.quote(run_id)
+        end = time.time() + timeout
+        while True:
+            run = self.get(f"/api/v2/dags/{dag_id}/dagRuns/{rid}")
+            if run["state"] in DONE:
+                break
+            if time.time() > end:
+                raise RuntimeError(f"{dag_id} still {run['state']} after {timeout}s")
+            time.sleep(1)
+        tis = self.get(f"/api/v2/dags/{dag_id}/dagRuns/{rid}/taskInstances?limit=1000")["task_instances"]
+        xcom = {}
+        for e in self.get(f"/api/v2/dags/{dag_id}/dagRuns/{rid}/taskInstances/~/xcomEntries?limit=1000").get("xcom_entries", []):
+            v = self.get(f"/api/v2/dags/{dag_id}/dagRuns/{rid}/taskInstances/{urllib.parse.quote(e['task_id'])}"
+                         f"/xcomEntries/{urllib.parse.quote(e['key'])}?deserialize=true")
+            xcom[f"{e['task_id']}.{e['key']}"] = v.get("value")
+        return outcome(run["state"], [(t["task_id"], t["state"], t["try_number"], t.get("start_date"), t.get("end_date"))
+                                      for t in tis], xcom)
+
+
+def outcome(state, tis, xcom):
+    """{state, tasks: {task: [state, try]}, xcom: {task.key: value}, spans: {task: [start, end]}} (spans not compared)."""
+    return {"state": state,
+            "tasks": {t: [s, n] for t, s, n, _a, _b in sorted(tis)},
+            "xcom": dict(sorted(xcom.items())),
+            "spans": {t: [a, b] for t, _s, _n, a, b in sorted(tis)}}
+
+
+INTERNAL_XCOM = ("skipmixin_key",)   # Airflow's own bookkeeping (which branch was skipped), not user data
+
+
+def comparable(o):
+    out = {k: v for k, v in o.items() if k != "spans"}
+    out["xcom"] = {k: v for k, v in o["xcom"].items() if k.split(".", 1)[1] not in INTERNAL_XCOM}
+    return out
+
+
+def respects(o, edges):
+    """Every task that ran started after all of its upstream tasks ended."""
+    ts = lambda x: datetime.datetime.fromisoformat(x.replace("Z", "+00:00")) if x else None  # noqa: E731
+    for up, down in edges:
+        a, b = o["spans"].get(up, [None, None]), o["spans"].get(down, [None, None])
+        if ts(a[1]) and ts(b[0]):
+            assert ts(b[0]) >= ts(a[1]), f"{down} started before {up} ended"
+
+
+@pytest.fixture(scope="session")
+def real():
+    url = os.environ.get("AIRFLOW_URL")
+    if not url:
+        if os.environ.get("COMPAT_DRY"):
+            return None
+        pytest.skip("set AIRFLOW_URL (see tests/compat/docker-compose.yml) to run against a real Airflow")
+    af = Airflow(url)
+    try:   # one check, no waiting: a container that is still starting fails fast with the reason
+        health = json.loads(urllib.request.urlopen(af.base + "/api/v2/monitor/health", timeout=5).read())
+    except (OSError, ValueError) as e:
+        pytest.exit(f"Airflow at {af.base} is not up ({e}); wait until "
+                    "`docker compose -f tests/compat/docker-compose.yml ps` shows healthy", returncode=1)
+    down = [k for k, v in health.items() if isinstance(v, dict) and v.get("status") not in (None, "healthy")]
+    if down:
+        pytest.exit(f"Airflow is up but not healthy yet: {', '.join(down)}; try again in a few seconds", returncode=1)
+    compat_report.versions["airflow"] = f"Apache Airflow {af.version()} (Docker)"
+    return af
 
 
 @pytest.fixture
-def pair(real, ours):
-    dry = real is None
+def ours():
+    """lambdaflow's local executor (phase 2); until then the lambdaflow side is not run."""
+    return None
 
-    def both(op):
-        o = run_step(ours, op)
-        if dry:
-            print(f"  {'ERR ' + str(o.error) if o.error else 'ok  '} {op}")
-            return o, o
-        return run_step(real, op), o
 
-    def run(steps):
-        for op in steps:
-            r, o = both(op)
-            if not dry:
-                assert r == o, f"{op}\n  real: {r}\n  ours: {o}"
-    run.both = both
-
-    def unsupported(op):
-        """The real service does it; the project must refuse it with NotSupportedError."""
-        r, o = both(op)
-        assert dry or r.error is None, f"the reference rejected it itself: {r.error}"
-        assert o.error and o.error[0] == "NotSupportedError", f"{op}\n  not refused: {o}"
-    run.unsupported = unsupported
-    return run
+@pytest.fixture
+def pair(real, ours, request):
+    class Pair:
+        def dag(self, dag_id, conf=None, edges=()):
+            r = None
+            if real is not None:
+                r = real.run(dag_id, conf)
+                os.makedirs(os.path.join(HERE, "expected"), exist_ok=True)
+                with open(os.path.join(HERE, "expected", f"{request.node.name}.json"), "w", encoding="utf-8") as f:
+                    json.dump(comparable(r), f, indent=1, sort_keys=True)
+                    f.write("\n")
+                respects(r, edges)
+            if ours is None:
+                pytest.skip("lambdaflow side: phase 2 (the Airflow outcome is in tests/compat/expected/)")
+            o = ours.run(dag_id, conf)
+            respects(o, edges)
+            if r is not None:
+                assert comparable(o) == comparable(r), f"{dag_id}\n  airflow: {comparable(r)}\n  ours:    {comparable(o)}"
+            return o
+    return Pair()

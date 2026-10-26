@@ -1,0 +1,17 @@
+{
+ "state": "success",
+ "tasks": {
+  "bash": [
+   "success",
+   1
+  ],
+  "py": [
+   "success",
+   1
+  ]
+ },
+ "xcom": {
+  "bash.return_value": "2026-01-01 20260101 world 42",
+  "py.return_value": "2026-01-08|2026-01"
+ }
+}

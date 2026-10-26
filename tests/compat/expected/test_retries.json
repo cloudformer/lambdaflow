@@ -1,0 +1,16 @@
+{
+ "state": "failed",
+ "tasks": {
+  "broken": [
+   "failed",
+   2
+  ],
+  "flaky": [
+   "success",
+   3
+  ]
+ },
+ "xcom": {
+  "flaky.return_value": 3
+ }
+}
