@@ -22,11 +22,72 @@ CONFIG = {
     ],
     "version": lambda: os.environ["PACKAGE"] + " " + __import__(os.environ["PACKAGE"]).__version__,
     "categories": ["DAGs", "Execution", "Templates", "Scheduling", "Variables", "Unsupported", "General"],
+    # Optional "Test scope" table: (business step, how it is tested, ["file.py::test_name", ...], still to do).
+    # Status is computed from the run: every listed test (all parametrized cases) must pass.
+    "scope": [
+        ("1. A DAG file reaches S3 (console upload or `aws s3 cp`) and is parsed",
+         "moto S3: unsupported arguments refused (`pool`, `dagrun_timeout`), import errors stored and cleared once "
+         "fixed, DAGs removed from a file disappear, pause survives a re-parse, S3 events parse / forget",
+         ["test_engine.py::test_unknown_arguments_are_refused_at_parse_time",
+          "test_engine.py::test_import_error_is_stored_and_cleared_when_fixed",
+          "test_engine.py::test_a_dag_removed_from_its_file_disappears_and_pause_survives_a_reparse",
+          "test_server.py::test_s3_events_parse_and_forget"], None),
+        ("2. A run is created once; each task runs once",
+         "moto DynamoDB, conditional writes: a duplicate trigger returns the same run, a second loop planning the "
+         "same run cannot claim a task again; the worker drops a duplicate scheduled start",
+         ["test_engine.py::test_a_run_is_created_once_and_runs_to_the_end",
+          "test_engine.py::test_a_task_is_claimed_once_when_two_loops_plan_the_same_run",
+          "test_engine.py::test_the_scheduled_start_is_deduplicated_by_the_worker"], None),
+        ("3. Tasks run by dependency: order, fan-out/in, trigger rules, branching, skips, retries",
+         "each task's state and try_number compared with Airflow; trigger rules beyond the compat DAG unit-tested",
+         ["test_airflow.py::test_chain", "test_airflow.py::test_fan_out_in", "test_airflow.py::test_retries",
+          "test_airflow.py::test_trigger_rules", "test_airflow.py::test_branching",
+          "test_airflow.py::test_branching_conf", "test_engine.py::test_trigger_rules_beyond_the_compat_dag"], None),
+        ("4. Data between tasks: XCom, TaskFlow return values, multiple_outputs",
+         "XCom values compared with Airflow",
+         ["test_airflow.py::test_chain", "test_airflow.py::test_fan_out_in", "test_airflow.py::test_taskflow"], None),
+        ("5. Templates: `{{ ds }}`, params, conf, macros; Bash output",
+         "rendered values compared with Airflow",
+         ["test_airflow.py::test_templates", "test_airflow.py::test_branching_conf"], None),
+        ("6. Scheduling: Airflow schedule → EventBridge Scheduler, pause, max_active_runs",
+         "translation and refusals unit-tested; the first run after start_date of 19 schedules compared with "
+         "Airflow's next_dagrun_run_after; moto Scheduler: the DAG's schedule is created, updated, disabled when "
+         "paused, deleted with the DAG; a run waits while max_active_runs are running",
+         ["test_schedule.py::test_cron_to_eventbridge", "test_schedule.py::test_timedelta_to_rate",
+          "test_schedule.py::test_once_and_timezone_come_from_start_date", "test_schedule.py::test_refused_with_the_reason",
+          "test_schedule.py::test_next_fire", "test_schedule.py::test_next_fire_of_at_and_rate",
+          "test_airflow.py::test_schedules", "test_airflow.py::test_schedule_timedelta",
+          "test_airflow.py::test_schedule_refused", "test_engine.py::test_an_unsupported_schedule_is_an_import_error",
+          "test_engine.py::test_the_schedule_follows_the_dag", "test_engine.py::test_max_active_runs_keeps_a_run_queued"],
+         None),
+        ("7. Task logs, retries, a worker that dies",
+         "print / logging / traceback captured to S3 per attempt (Airflow's log path); a timed-out worker is "
+         "reported by the state machine and retried like any failure",
+         ["test_engine.py::test_task_logs_retries_and_a_dead_worker"], None),
+        ("8. Console actions and the pip client: trigger, pause, clear, mark, delete, the airflow CLI box",
+         "console Lambda in-process with moto, the state machine replaced by the worker loop; clear gives the "
+         "task its retries again (Airflow's max_tries)",
+         ["test_server.py::test_console_is_public_and_api_needs_auth",
+          "test_server.py::test_upload_trigger_and_read_back_a_run", "test_server.py::test_clear_failed_and_mark",
+          "test_server.py::test_import_errors_unknown_dags_and_delete", "test_server.py::test_pause_unpause",
+          "test_server.py::test_the_airflow_cli_box", "test_server.py::test_the_pip_client_drives_the_console",
+          "test_engine.py::test_clear_reruns_the_task_and_its_downstream_with_the_next_try",
+          "test_engine.py::test_mark_success_on_the_failed_leaf_makes_the_run_succeed",
+          "test_engine.py::test_delete_dag_removes_runs_logs_and_the_file"],
+         "the page itself: by hand in `python3 src/server/dev.py`"),
+        ("9. Variables / Connections; ssm and secretsmanager backends",
+         "moto", [], "later phase"),
+        ("10. Real orchestration: Step Functions loop calling Lambda, EventBridge firing, IAM, real DynamoDB and S3",
+         "not testable locally: `drive()` makes the same `step` / `run_task` calls the state machine makes, "
+         "`worker.loop()` the same first state; verified on AWS after `terraform apply`",
+         [], "after deploy"),
+    ],
 }
 
 features = {}   # nodeid -> {"suite", "feature", "gap", "unsupported", "quirk", "fail"}
 outcomes = {}   # nodeid -> verified | gap | regression | fixed | unsupported | quirk | not run
 versions = {}   # suite key -> reference version string (set by the compat conftest once connected)
+results = {}    # every nodeid -> passed | failed | skipped | xfailed (for the scope table)
 suite = {"passed": 0, "failed": 0, "skipped": 0, "xfailed": 0}
 
 STATUS = {"verified": "✅", "gap": "❌ gap", "regression": "🔴 regression", "fixed": "🟡 fixed",
@@ -71,6 +132,8 @@ def pytest_runtest_logreport(report):
             suite["xfailed"] += 1
         elif report.outcome in ("passed", "failed"):
             suite[report.outcome] += 1
+    if report.outcome == "failed" or report.when == "call" or (report.when == "setup" and report.outcome == "skipped"):
+        results[report.nodeid] = "xfailed" if hasattr(report, "wasxfail") else report.outcome
     if report.nodeid not in features:
         return
     if report.when == "setup" and report.outcome == "skipped":
@@ -109,8 +172,30 @@ def _counts(kind):
     return pct + " · ".join(f"{n} {k}" for k, n in sorted(c.items()))
 
 
+def _scope():
+    def matches(spec):
+        file, name = spec.split("::")
+        return [n for n in results
+                if n.split("::")[0].endswith("/" + file) and n.split("::")[-1].split("[")[0] == name]
+    lines = ["## Test scope", "",
+             "What each business step is checked by. ✅ every listed test passed · 🔴 one failed · "
+             "⏭ some not run (filtered, or an Airflow outcome not recorded yet) · ⏳ still to do.", "",
+             "| Business step | How it is tested | Tests | Status |", "|---|---|---|---|"]
+    for step, how, tests, todo in CONFIG["scope"]:
+        ran = [r for spec in tests for r in matches(spec)]
+        got = [results[n] for n in ran]
+        passed = got.count("passed") + got.count("xfailed")      # a quirk's expected failure is its pass
+        status = ("🔴 " if "failed" in got else "✅ " if got and passed == len(got) else "⏭ ") + \
+                 f"{passed}/{len(got)}" if tests else ""
+        if todo:
+            status = (status + " · " if status else "") + f"⏳ {todo}"
+        names = "<br>".join(f"`{s.split('::')[1]}`" for s in tests) or "—"
+        lines.append(f"| {step} | {how} | {names} | {status} |")
+    return lines + [""]
+
+
 def render():
-    order = {"verified": 0, "fixed": 1, "regression": 2, "gap": 3, "quirk": 4, "unsupported": 5, "not run": 6}
+    order ={"verified": 0, "fixed": 1, "regression": 2, "gap": 3, "quirk": 4, "unsupported": 5, "not run": 6}
     cats = CONFIG["categories"]
     lines = [
         f"# {CONFIG['title']} · [tasks](TASKS.md)", "",
@@ -121,7 +206,7 @@ def render():
         f"Whole test run: **{suite['passed']} passed**, {suite['failed']} failed, {suite['xfailed']} expected failures "
         f"(known gaps), {suite['skipped']} skipped — regression suite (`tests/`) and compatibility suite (`tests/compat/`) together.", "",
         f"Open tasks: {_open_tasks()} — see [TASKS.md](TASKS.md).", "",
-    ]
+    ] + (_scope() if CONFIG.get("scope") else [])
     for kind, title, _match, ref in CONFIG["suites"]:
         lines += [f"## {title} — reference: {ref() if callable(ref) else ref}", "", _counts(kind), "", LEGEND, ""]
         groups = {}

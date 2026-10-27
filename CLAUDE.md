@@ -43,6 +43,9 @@ s3rds (github.com/cloudformer/s3rds) is the reference implementation; when in do
    the primitives; label what each primitive holds, where durability happens, and the idle cost. Below it a
    table comparing the real service and the project (idle cost, endpoint, storage, client, console,
    compatibility %).
+   The same image is the first thing on the PyPI page: `client/README.md` embeds it right under the bold
+   intro by absolute URL (`https://raw.githubusercontent.com/cloudformer/<project>/main/docs/architecture.svg`);
+   PyPI cannot resolve relative paths.
 8. **Two deployments, every command from the repo root.** Terraform (`terraform -chdir=terraform …`) and
    CloudFormation produce the same resources; `example.json` / `example-params.json` are committed, real
    variable files are gitignored. Least-privilege IAM. Destroy must work.

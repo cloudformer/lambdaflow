@@ -3,14 +3,14 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "lambdaflow"           # <project>: repo = pip = import name
+name = "lambdaflow"
 version = "0.1.0"
-description = "A truly serverless <replaces> on your own AWS account: <built on>, ≈ $0 when idle. Client named after the standard one: <project>.<client>."
+description = "A truly serverless Airflow on your own AWS account: Airflow 3 DAG files on Lambda, Step Functions, EventBridge Scheduler and DynamoDB, ≈ $0 when idle. Python client for the deployment."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "Frank Zhang" }]
-keywords = ["serverless", "aws", "lambda", "<replaces>"]
+keywords = ["serverless", "aws", "lambda", "airflow", "mwaa", "step-functions"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
@@ -20,12 +20,12 @@ classifiers = [
 dependencies = []  # standard library only
 
 [project.urls]
-Homepage = "https://github.com/cloudformer/<project>"
-Repository = "https://github.com/cloudformer/<project>"
-Deploy = "https://github.com/cloudformer/<project>#quick-start"
-Compatibility = "https://github.com/cloudformer/<project>/blob/main/tests/compat/REPORT.md"
-Changelog = "https://github.com/cloudformer/<project>/blob/main/CHANGELOG.md"
-Issues = "https://github.com/cloudformer/<project>/issues"
+Homepage = "https://github.com/cloudformer/lambdaflow"
+Repository = "https://github.com/cloudformer/lambdaflow"
+Deploy = "https://github.com/cloudformer/lambdaflow#quick-start"
+Compatibility = "https://github.com/cloudformer/lambdaflow/blob/main/tests/compat/REPORT.md"
+Changelog = "https://github.com/cloudformer/lambdaflow/blob/main/CHANGELOG.md"
+Issues = "https://github.com/cloudformer/lambdaflow/issues"
 
 [tool.setuptools]
-packages = ["lambdaflow"]     # rename the directory client/project/ to client/<project>/
+packages = ["lambdaflow"]

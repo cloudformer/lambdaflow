@@ -1,19 +1,26 @@
-# <project>
+# lambdaflow
 
-**Python client for [<project>](https://github.com/cloudformer/<project>) — a truly serverless <replaces>:
-<built on>, a Lambda Function URL as the endpoint, ≈ $0 when idle.** Part of
-[Redefine AWS Serverless](https://github.com/topics/redefine-aws-serverless).
+**Python client for [lambdaflow](https://github.com/cloudformer/lambdaflow) — a truly serverless Airflow:
+Airflow 3 DAG files on Lambda, Step Functions, EventBridge Scheduler, DynamoDB and S3, ≈ $0 when idle.**
+Part of [Redefine AWS Serverless](https://github.com/topics/redefine-aws-serverless).
+
+![lambdaflow architecture](https://raw.githubusercontent.com/cloudformer/lambdaflow/main/docs/architecture.svg)
 
 ```bash
-pip install <project>
+pip install lambdaflow
 ```
 
 ```python
-from <project> import <client>        # later: `import <client>` against the real service, nothing else changes
+from lambdaflow import client
 
-<five-line example>
+lf = client.connect("https://xxxx.lambda-url.us-east-2.on.aws", "admin", "secret")   # terraform output console_url
+lf.upload("my_dag.py")                                   # parsed at once; import errors come back
+run_id = lf.trigger("my_dag", conf={"x": 1}, unpause=True)
+print(lf.wait("my_dag", run_id))                         # "success" | "failed"
+print(lf.log("my_dag", run_id, "extract"))
+print(lf.cli("dags list-runs my_dag"))                   # the airflow commands of the console's command box
 ```
 
-The endpoint comes from deploying the [main repository](https://github.com/cloudformer/<project>) —
-same as any client needs its service. Compatibility with the real client:
-[REPORT.md](https://github.com/cloudformer/<project>/blob/main/tests/compat/REPORT.md).
+Standard library only. The deployment comes from the [main repository](https://github.com/cloudformer/lambdaflow)
+(Terraform). Compatibility with Airflow 3.3:
+[REPORT.md](https://github.com/cloudformer/lambdaflow/blob/main/tests/compat/REPORT.md).

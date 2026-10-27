@@ -5,9 +5,13 @@ triggers one run of tests/compat/dags/<dag_id>.py on both sides and asserts the 
 the run's state, every task's (state, try_number) and every XCom value. Wall-clock order is not compared
 (parallel tasks may finish in any order); instead each side is checked to respect the dependencies.
 
+`pair.next_runs(file)` compares schedules instead: for every DAG of the file, the first run after its
+start_date (Airflow's next_dagrun_run_after; lambdaflow's EventBridge expression, evaluated).
+
 Real side: AIRFLOW_URL=http://admin:admin@127.0.0.1:8088 (tests/compat/docker-compose.yml, service
 airflow). Each real outcome is also written to tests/compat/expected/<test name>.json, so what Airflow does
-is visible in git and in review. Without AIRFLOW_URL the lambdaflow side is compared with those recorded outcomes.
+is visible in git and in review. Without AIRFLOW_URL the lambdaflow side is compared with those recorded
+outcomes; a test whose outcome was never recorded is skipped (not run), never guessed.
 """
 import datetime
 import json
@@ -69,18 +73,21 @@ class Airflow:
     def version(self):
         return self.get("/api/v2/version")["version"]
 
-    def wait_parsed(self, dag_id, timeout=120):
+    def wait_parsed(self, dag_id, file=None, timeout=120):
         """The DAG file is picked up by the dag processor within seconds; an import error fails at once."""
         end = time.time() + timeout
         while time.time() < end:
-            status, _ = self._req("GET", f"/api/v2/dags/{dag_id}")
+            status, data = self._req("GET", f"/api/v2/dags/{dag_id}")
             if status == 200:
-                return
+                return data
             for e in self.get("/api/v2/importErrors").get("import_errors", []):
-                if e.get("filename", "").endswith(f"/{dag_id}.py"):
-                    raise RuntimeError(f"Airflow could not import {dag_id}.py:\n{e.get('stack_trace')}")
+                if e.get("filename", "").endswith(f"/{file or dag_id}.py"):
+                    raise RuntimeError(f"Airflow could not import {file or dag_id}.py:\n{e.get('stack_trace')}")
             time.sleep(2)
         raise RuntimeError(f"DAG {dag_id} not parsed after {timeout}s")
+
+    def next_runs(self, file, dag_ids):
+        return {d: utc(self.wait_parsed(d, file).get("next_dagrun_run_after")) for d in dag_ids}
 
     def run(self, dag_id, conf=None, logical_date=LOGICAL_DATE, timeout=300):
         """Trigger one run and wait for it; returns the normalised outcome."""
@@ -110,6 +117,12 @@ class Airflow:
             xcom[f"{e['task_id']}.{e['key']}"] = v.get("value")
         return outcome(run["state"], [(t["task_id"], t["state"], t["try_number"], t.get("start_date"), t.get("end_date"))
                                       for t in tis], xcom)
+
+
+def utc(t):
+    if not t:
+        return None
+    return datetime.datetime.fromisoformat(t.replace("Z", "+00:00")).astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def outcome(state, tis, xcom):
@@ -181,6 +194,19 @@ class Ours:
         return outcome(run["state"], [(t, i["state"], int(i.get("try_number", 0)), i.get("start"), i.get("end"))
                                       for t, i in tis.items()], xcom)
 
+    def next_runs(self, file):
+        """Every DAG of the file: the first time its EventBridge expression fires after its start_date."""
+        with open(os.path.join(HERE, "dags", f"{file}.py"), encoding="utf-8") as f:
+            parsed = self.engine.put_dag_file(f"{file}.py", f.read())
+        if not parsed:
+            err = self.engine.import_errors()
+            raise RuntimeError(f"lambdaflow could not import {file}.py:\n{err[0]['trace'] if err else '?'}")
+        out = {}
+        for dag_id in parsed:
+            spec = self.engine.spec(dag_id)[0]
+            out[dag_id] = utc(self.engine.next_run(spec, after=datetime.datetime.fromisoformat(spec["start_date"])))
+        return out
+
 
 @pytest.fixture
 def ours(tmp_path, monkeypatch):
@@ -196,19 +222,36 @@ def ours(tmp_path, monkeypatch):
 
 @pytest.fixture
 def pair(real, ours, request):
+    path = os.path.join(HERE, "expected", f"{request.node.name}.json")
+
+    def record(r):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(r, f, indent=1, sort_keys=True)
+            f.write("\n")
+
+    def recorded():
+        if not os.path.exists(path):
+            pytest.skip("Airflow's outcome is not recorded yet: run once with AIRFLOW_URL")
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+
     class Pair:
+        def next_runs(self, file):
+            o = ours.next_runs(file)
+            r = recorded() if real is None else real.next_runs(file, sorted(o))
+            if real is not None:
+                record(r)
+            assert o == r, f"{file}\n  real: {r}\n  ours: {o}"
+
         def dag(self, dag_id, conf=None, edges=()):
             r = None
             if real is not None:
                 r = real.run(dag_id, conf)
-                os.makedirs(os.path.join(HERE, "expected"), exist_ok=True)
-                with open(os.path.join(HERE, "expected", f"{request.node.name}.json"), "w", encoding="utf-8") as f:
-                    json.dump(comparable(r), f, indent=1, sort_keys=True)
-                    f.write("\n")
+                record(comparable(r))
                 respects(r, edges)
             else:
-                with open(os.path.join(HERE, "expected", f"{request.node.name}.json"), encoding="utf-8") as f:
-                    r = json.load(f)
+                r = recorded()
             o = ours.run(dag_id, conf)
             respects(o, edges)
             assert comparable(o) == comparable(r), f"{dag_id}\n  real: {comparable(r)}\n  ours: {comparable(o)}"

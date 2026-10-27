@@ -3,205 +3,217 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>&lt;project&gt; console</title>
+<title>lambdaflow console</title>
 <style>
-/* 风格参考 Automation_Delivery_EaC 的 db 页面 */
 * { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --success: #2e9e44; --failed: #e53935; --running: #7cd635; --queued: #9e9e9e; --up_for_retry: #f6c90e;
+  --upstream_failed: #fb8c00; --skipped: #f06292; --none: #ffffff;
+  --ink: #1f2937; --muted: #6b7280; --line: #e5e7eb; --soft: #f8fafc; --accent: #667eea;
+}
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
   background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  min-height: 100vh;
-  padding: 40px 20px;
+  min-height: 100vh; padding: 32px 20px; color: var(--ink);
 }
 .container {
-  max-width: 1200px;
-  margin: 0 auto;
-  background: white;
-  border-radius: 15px;
-  padding: 40px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  max-width: 1400px; margin: 0 auto; background: white; border-radius: 15px;
+  padding: 32px 36px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
 }
-h1 { color: #333; margin-bottom: 10px; }
-/* 顶部信息行:Endpoint 固定在前,Database 在后(定宽,切库不抖),退出靠右 */
-.db-info {
-  display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
-  margin: 6px 0 24px; font-size: 13px;
-}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.top { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+h1 { font-size: 26px; }
+h1 a { color: var(--ink); }
+h1 a:hover { text-decoration: none; }
+.nav { display: flex; gap: 6px; }
+.nav a { padding: 6px 12px; border-radius: 6px; color: #374151; font-weight: 600; font-size: 14px; }
+.nav a.on, .nav a:hover { background: #eef2ff; color: var(--accent); text-decoration: none; }
+.db-info { display: flex; align-items: center; gap: 16px; margin-left: auto; font-size: 13px; }
 .db-info .meta { display: inline-flex; align-items: center; gap: 8px; }
-.db-info .k {
-  font-size: 11px; font-weight: 600; letter-spacing: .06em;
-  text-transform: uppercase; color: #9ca3af;
-}
+.k { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #9ca3af; }
 .chip {
-  background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px;
-  padding: 4px 10px; color: #374151; font-size: 12px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: #f3f4f6; border: 1px solid var(--line); border-radius: 6px; padding: 3px 9px; color: #374151;
+  font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap;
 }
-/* 定宽,像 format 的固定列:内容长短变化不影响后面元素的位置 */
-#info-db { width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tag { background: #eef2ff; border-color: #c7d2fe; color: #4338ca; font-family: inherit; border-radius: 10px; }
 
-/* 输出日志(DataGrip 风格) */
+/* log pane (shared) */
 .log {
-  background: #1f2937; color: #d1d5db; border-radius: 8px;
-  padding: 10px 14px; margin: 12px 0 0; max-height: 200px; overflow: auto;
-  font: 12px/1.7 ui-monospace, 'Courier New', monospace; white-space: pre-wrap;
+  background: #1f2937; color: #d1d5db; border-radius: 8px; padding: 10px 14px; margin: 12px 0 0;
+  max-height: 200px; overflow: auto; font: 12px/1.7 ui-monospace, 'Courier New', monospace; white-space: pre-wrap;
 }
 .log:empty { display: none; }
-.log.expanded { max-height: 360px; }
-.log .sep { border-top: 1px dashed #4b5563; margin: 6px 0; }
-.log .sql { color: #93c5fd; }
-.log .ok  { color: #86efac; }
-.log .err { color: #fca5a5; }
+.log .sql { color: #93c5fd; } .log .ok { color: #86efac; } .log .err { color: #fca5a5; }
 
-/* Controls */
-.controls { display: flex; gap: 15px; margin: 20px 0; flex-wrap: wrap; align-items: center; }
-.controls label { font-size: 14px; font-weight: 600; color: #4b5563; }
-.controls select {
-  padding: 10px 15px; border: 2px solid #e5e7eb; border-radius: 6px;
-  font-size: 14px; min-width: 180px; background: white;
-}
-.btn {
-  padding: 10px 20px; border: none; border-radius: 6px;
-  font-weight: 600; cursor: pointer; transition: all .3s; font-size: 14px;
-}
-.btn-primary   { background: #10b981; color: white; }
-.btn-primary:hover { background: #059669; }
-.btn-secondary { background: #667eea; color: white; }
-.btn-secondary:hover { background: #5568d3; }
-.btn-ghost { background: white; color: #374151; border: 2px solid #e5e7eb; }
-.btn-ghost:hover { border-color: #667eea; color: #667eea; }
-.btn-danger {
-  background: #ef4444; color: white; padding: 5px 10px;
-  border: none; border-radius: 4px; cursor: pointer; font-size: 12px;
-}
-.btn-danger:hover { background: #dc2626; }
-.btn-small { padding: 5px 10px; font-size: 12px; border-radius: 4px; }
+/* buttons */
+.btn { padding: 9px 16px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all .2s; font-size: 14px; }
+.btn-primary { background: #10b981; color: white; } .btn-primary:hover { background: #059669; }
+.btn-secondary { background: var(--accent); color: white; } .btn-secondary:hover { background: #5568d3; }
+.btn-ghost { background: white; color: #374151; border: 2px solid var(--line); }
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.btn-danger { background: white; color: #dc2626; border: 2px solid #fecaca; }
+.btn-danger:hover { background: #fef2f2; }
+.btn-small { padding: 5px 10px; font-size: 12px; border-radius: 5px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.icon-btn { background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px 6px; border-radius: 5px; color: #374151; }
+.icon-btn:hover { background: #f3f4f6; }
 
-/* Table section */
-.table-section {
-  margin: 30px 0; border: 2px solid #e5e7eb; border-radius: 10px;
-  padding: 20px; background: #f8fafc;
-}
-.table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.table-name { font-size: 22px; font-weight: 600; color: #1f2937; }
-.row-count {
-  background: #10b981; color: white; padding: 6px 15px;
-  border-radius: 20px; font-size: 14px; font-weight: 600;
-}
-.section-title {
-  font-size: 16px; font-weight: 600; color: #4b5563; margin: 20px 0 10px 0;
-  display: flex; align-items: center; gap: 10px;
-}
-table {
-  width: 100%; border-collapse: collapse; background: white;
-  border-radius: 8px; overflow: hidden; margin-bottom: 20px;
-}
-th {
-  background: #374151; color: white; padding: 12px; text-align: left;
-  font-weight: 600; font-size: 14px; white-space: nowrap;
-}
-td {
-  padding: 10px 12px; border-bottom: 1px solid #e5e7eb;
-  font-size: 14px; color: #374151; max-width: 420px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-tr:last-child td { border-bottom: none; }
-tr:hover td { background: #f9fafb; }
-td.null { color: #9ca3af; font-style: italic; }
-td input {
-  width: 100%; min-width: 80px; padding: 6px 8px;
-  border: 2px solid #e5e7eb; border-radius: 4px; font-size: 13px;
-}
-
-/* Add form */
-.add-form {
-  background: #f0fdf4; border: 2px solid #10b981; border-radius: 8px;
-  padding: 20px; margin: 20px 0;
-}
-.add-form h3 { color: #065f46; margin-bottom: 15px; font-size: 18px; }
-.form-grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 15px; margin-bottom: 15px;
-}
-.form-field label {
-  display: block; font-size: 13px; font-weight: 600;
-  color: #374151; margin-bottom: 5px;
-}
-.form-field input {
-  width: 100%; padding: 8px; border: 2px solid #e5e7eb;
-  border-radius: 4px; font-size: 14px;
-}
-.form-field small { color: #6b7280; font-size: 12px; }
-
-/* Pagination */
-.pagination { display: flex; gap: 10px; justify-content: center; align-items: center; margin: 20px 0 0; }
-.pagination button, .pagination span {
-  padding: 8px 12px; border-radius: 6px; font-size: 14px;
-  color: #374151; background: white; border: 2px solid #e5e7eb;
-}
-.pagination button { cursor: pointer; }
-.pagination button:hover:not(:disabled) { background: #667eea; color: white; border-color: #667eea; }
-.pagination button:disabled { opacity: .5; cursor: not-allowed; }
-.pagination .current { background: #667eea; color: white; border-color: #667eea; font-weight: 600; }
-
-.empty { padding: 40px; text-align: center; color: #9ca3af; }
-
-/* SQL console */
-.sql-section {
-  margin: 20px 0; border: 2px solid #e5e7eb; border-radius: 10px;
-  padding: 20px; background: #f8fafc;
-}
+/* command box (shared) */
+.sql-section { margin: 20px 0; border: 2px solid var(--line); border-radius: 10px; padding: 14px 16px; background: var(--soft); }
 .sql-section textarea {
-  width: 100%; height: 90px; resize: vertical; padding: 12px;
-  border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;
-  font-family: ui-monospace, 'Courier New', monospace;
+  width: 100%; height: 44px; resize: vertical; padding: 10px 12px; border: 2px solid var(--line); border-radius: 6px;
+  font-size: 13px; font-family: ui-monospace, 'Courier New', monospace;
 }
-.sql-actions { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
-.hint { font-size: 12px; color: #6b7280; }
+.sql-actions { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+.hint { font-size: 12px; color: var(--muted); }
+.section-title { font-size: 13px; font-weight: 700; color: #4b5563; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .05em; }
 
-/* 页内模态框(不用浏览器 prompt,避免被"阻止对话框"机制吞掉) */
-dialog {
-  border: none; border-radius: 10px; padding: 25px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.3); min-width: 340px; max-width: 90vw;
-  position: fixed; inset: 0; margin: auto;   /* centred in the viewport, whatever the page scroll */
-}
+/* tables */
+table { width: 100%; border-collapse: collapse; background: white; }
+th { background: #374151; color: white; padding: 10px 12px; text-align: left; font-weight: 600; font-size: 13px; white-space: nowrap; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 14px; vertical-align: middle; }
+tr:hover td { background: #f9fafb; }
+.tbl { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.kv td:first-child { color: var(--muted); width: 190px; font-size: 13px; white-space: nowrap; }
+.kv td { padding: 7px 10px; font-size: 13px; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.muted { color: var(--muted); font-size: 12px; }
+.empty { padding: 50px; text-align: center; color: #9ca3af; }
+
+/* states */
+.st { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,.15); vertical-align: middle; }
+.st.round { border-radius: 50%; }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; background: #f3f4f6; }
+.s-success { background: var(--success); } .s-failed { background: var(--failed); } .s-running { background: var(--running); }
+.s-queued { background: var(--queued); } .s-up_for_retry { background: var(--up_for_retry); }
+.s-upstream_failed { background: var(--upstream_failed); } .s-skipped { background: var(--skipped); }
+.s-none { background: var(--none); border-color: #cbd5e1; }
+.s-running.pulse { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .45; } }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; gap: 5px; align-items: center; }
+
+/* toolbar */
+.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.toolbar input[type=search] { padding: 8px 12px; border: 2px solid var(--line); border-radius: 6px; font-size: 14px; min-width: 240px; }
+.seg { display: inline-flex; border: 2px solid var(--line); border-radius: 7px; overflow: hidden; }
+.seg button { border: none; background: white; padding: 7px 12px; font-size: 13px; cursor: pointer; color: #374151; font-weight: 600; }
+.seg button.on { background: var(--accent); color: white; }
+.grow { flex: 1; }
+
+/* pause switch, as in the Airflow UI: on = active */
+.switch { position: relative; display: inline-block; width: 34px; height: 19px; vertical-align: middle; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch span { position: absolute; inset: 0; background: #cbd5e1; border-radius: 19px; cursor: pointer; transition: .2s; }
+.switch span:before { content: ""; position: absolute; width: 15px; height: 15px; left: 2px; top: 2px; background: white; border-radius: 50%; transition: .2s; }
+.switch input:checked + span { background: #10b981; }
+.switch input:checked + span:before { transform: translateX(15px); }
+
+/* import errors */
+.errors { border: 2px solid #fecaca; background: #fef2f2; border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; }
+.errors summary { cursor: pointer; color: #b91c1c; font-weight: 700; }
+.errors .one { margin-top: 10px; }
+.errors pre { background: #1f2937; color: #fca5a5; padding: 10px; border-radius: 6px; font-size: 12px; overflow: auto; max-height: 260px; margin-top: 6px; }
+
+/* DAG page */
+.crumb { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.dag-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
+.dag-head h2 { font-size: 22px; }
+.tabs { display: flex; gap: 2px; border-bottom: 2px solid var(--line); margin: 6px 0 14px; }
+.tabs button { background: none; border: none; padding: 9px 16px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+.tabs button.on { color: var(--accent); border-bottom-color: var(--accent); }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 42%); gap: 18px; align-items: start; }
+@media (max-width: 1000px) { .split { grid-template-columns: 1fr; } }
+.pane { border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: white; overflow: auto; }
+.panel { border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--soft); position: sticky; top: 10px; max-height: calc(100vh - 20px); overflow: auto; }
+.panel h3 { font-size: 16px; margin-bottom: 4px; word-break: break-all; }
+.panel .acts { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; align-items: center; }
+.ptabs { display: flex; gap: 2px; margin: 8px 0; }
+.ptabs button { border: 1px solid var(--line); background: white; padding: 5px 12px; font-size: 12px; font-weight: 600; cursor: pointer; border-radius: 5px; color: #374151; }
+.ptabs button.on { background: var(--accent); border-color: var(--accent); color: white; }
+pre.tasklog { background: #111827; color: #e5e7eb; padding: 12px; border-radius: 8px; font: 12px/1.55 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-word; max-height: 520px; overflow: auto; }
+pre.tasklog .lerr { color: #fca5a5; } pre.tasklog .lwarn { color: #fde68a; } pre.tasklog .ldim { color: #9ca3af; }
+
+/* grid view */
+.grid { border-collapse: separate; border-spacing: 0; width: auto; }
+.grid td, .grid th { border: none; padding: 0; background: none; }
+.grid tr:hover td { background: none; }
+.grid .name { position: sticky; left: 0; background: white; padding: 2px 14px 2px 0; font-size: 13px; white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.grid .name:hover { color: var(--accent); }
+.grid .name .op { color: #9ca3af; font-size: 11px; margin-left: 6px; }
+.grid .cell { width: 22px; height: 22px; text-align: center; vertical-align: middle; cursor: pointer; }
+.grid .cell .st { width: 14px; height: 14px; }
+.grid .cell:hover .st, .grid .sel .st { outline: 2px solid var(--accent); outline-offset: 1px; }
+.grid .col-sel { background: #eef2ff !important; }
+.grid .bars td { vertical-align: bottom; height: 70px; }
+.grid .bar { width: 12px; margin: 0 auto; border-radius: 3px 3px 0 0; cursor: pointer; border: 1px solid rgba(0,0,0,.1); }
+.grid .bar:hover { outline: 2px solid var(--accent); }
+.grid .dates td { font-size: 10px; color: #9ca3af; height: 16px; }
+
+/* graph view */
+.graph svg { display: block; }
+.graph .node rect { fill: white; stroke-width: 2.5; rx: 7; cursor: pointer; }
+.graph .node:hover rect { filter: drop-shadow(0 2px 4px rgba(0,0,0,.18)); }
+.graph .node.sel rect { stroke: var(--accent) !important; stroke-width: 3.5; }
+.graph .node text { font-size: 12px; fill: var(--ink); pointer-events: none; }
+.graph .node .op { font-size: 10px; fill: #9ca3af; }
+.graph path.edge { fill: none; stroke: #94a3b8; stroke-width: 1.6; }
+
+/* code */
+.code { counter-reset: line; background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 12px 0; overflow: auto; font: 13px/1.6 ui-monospace, Menlo, monospace; max-height: 70vh; }
+.code div { white-space: pre; padding: 0 16px 0 0; }
+.code div:before { counter-increment: line; content: counter(line); display: inline-block; width: 48px; padding-right: 14px; text-align: right; color: #475569; user-select: none; }
+.code .kw { color: #c084fc; } .code .str { color: #86efac; } .code .com { color: #64748b; font-style: italic; }
+textarea.editor { width: 100%; min-height: 60vh; font: 13px/1.6 ui-monospace, Menlo, monospace; padding: 12px; border: 2px solid var(--accent); border-radius: 8px; background: #0f172a; color: #e2e8f0; tab-size: 4; }
+
+/* dialog (shared, in-page) */
+dialog { border: none; border-radius: 10px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,.3); min-width: 380px; max-width: 92vw; position: fixed; inset: 0; margin: auto; }
 dialog::backdrop { background: rgba(0,0,0,.4); }
-dialog h3 { margin-bottom: 15px; color: #1f2937; font-size: 17px; }
-dialog .form-grid { grid-template-columns: 1fr; }
-@media (max-width: 640px){ .container { padding: 20px; } body { padding: 16px; } }
+dialog h3 { margin-bottom: 14px; font-size: 17px; }
+.form-grid { display: grid; gap: 10px; margin-bottom: 15px; }
+.form-grid label { font-size: 13px; font-weight: 600; color: #374151; }
+.form-grid input[type=text], .form-grid input[type=password], .form-grid textarea { width: 100%; padding: 8px; border: 2px solid var(--line); border-radius: 5px; font-size: 14px; }
+.form-grid textarea { font-family: ui-monospace, Menlo, monospace; font-size: 13px; min-height: 120px; min-width: 460px; }
+.form-grid .check { display: flex; gap: 8px; align-items: center; font-weight: 500; }
+.form-grid .note { font-size: 13px; color: #4b5563; font-weight: 400; max-width: 520px; }
+@media (max-width: 640px) { .container { padding: 18px; } body { padding: 12px; } .form-grid textarea { min-width: 0; } }
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>⚡ &lt;project&gt; console</h1>
-  <div class="db-info">
-    <span class="meta"><span class="k">Endpoint</span><span class="chip" id="info-host">-</span></span>
-    <button class="btn btn-ghost btn-small" id="logout">sign out</button>
+  <div class="top">
+    <h1><a href="#/">⚡ lambdaflow</a></h1>
+    <div class="nav"><a href="#/" id="nav-dags">DAGs</a><a href="#/errors" id="nav-errors">Import errors</a></div>
+    <div class="db-info">
+      <span class="meta"><span class="k">Endpoint</span><span class="chip" id="info-host">-</span></span>
+      <button class="btn btn-ghost btn-small" id="logout">sign out</button>
+    </div>
   </div>
 
-  <!-- template: the command box. Every project has one: SQL, redis commands, a DAG trigger, a message... -->
   <div class="sql-section">
     <div class="section-title">Command</div>
-    <textarea id="cmd" placeholder="e.g. ping"></textarea>
+    <textarea id="cmd" placeholder="dags trigger my_dag -c '{&quot;x&quot;: 1}'     ·  type help for the airflow commands lambdaflow understands"></textarea>
     <div class="sql-actions">
-      <button class="btn btn-primary" id="run">▶ Run</button>
+      <button class="btn btn-primary btn-small" id="run">▶ Run</button>
       <span class="hint">⌘/Ctrl+Enter runs</span>
-      <span style="flex:1"></span>
+      <span class="grow"></span>
       <button class="btn btn-ghost btn-small" id="togglelog">history</button>
     </div>
     <div class="log" id="log"></div>
   </div>
 
-  <!-- template: the project's views (lists, tables, detail panes) render into #main -->
   <div id="main"></div>
 </div>
+
+<input type="file" id="file" accept=".py" style="display:none">
 
 <dialog id="dlg">
   <form method="dialog">
     <h3 id="dlgtitle"></h3>
     <div class="form-grid" id="dlgbody"></div>
     <div class="sql-actions">
-      <button class="btn btn-primary" value="ok">OK</button>
+      <button class="btn btn-primary" value="ok" id="dlgok">OK</button>
       <button class="btn btn-ghost" value="cancel" formnovalidate>Cancel</button>
     </div>
   </form>
@@ -210,7 +222,7 @@ dialog .form-grid { grid-template-columns: 1fr; }
 <script>
 // ---------------- shared shell: credentials, dialog, log, api() ----------------
 const $ = s => document.querySelector(s);
-const KEY = '<project>_';                       // localStorage prefix: only the credential is kept
+const KEY = 'lambdaflow_';                      // localStorage prefix: only the credential is kept
 const store = {
   get: k => { try { return localStorage.getItem(KEY + k); } catch(e){ return null; } },
   set: (k, v) => { try { v == null ? localStorage.removeItem(KEY + k) : localStorage.setItem(KEY + k, v); } catch(e){} },
@@ -218,21 +230,27 @@ const store = {
 let cred = store.get('cred') || '';
 function saveCred(c){ cred = c; store.set('cred', c || null); }
 $('#info-host').textContent = location.host;
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 // in-page dialog (browsers suppress prompt() inside Lambda URL pages)
-function dialog(title, fields){
+function dialog(title, fields, ok){
   return new Promise(resolve => {
     $('#dlgtitle').textContent = title;
+    $('#dlgok').textContent = ok || 'OK';
     $('#dlgbody').innerHTML = fields.map(f =>
-      `<label>${f.label}</label><input name="${f.name}" type="${f.type || 'text'}" value="${f.value || ''}" ${f.required ? 'required' : ''}>`).join('');
+      f.type === 'note' ? `<div class="note">${f.html || esc(f.value)}</div>` :
+      f.type === 'checkbox' ? `<label class="check"><input type="checkbox" name="${f.name}" ${f.value ? 'checked' : ''}> ${esc(f.label)}</label>` :
+      f.type === 'textarea' ? `<label>${esc(f.label)}</label><textarea name="${f.name}" spellcheck="false">${esc(f.value)}</textarea>` :
+      `<label>${esc(f.label)}</label><input name="${f.name}" type="${f.type || 'text'}" value="${esc(f.value)}" placeholder="${esc(f.placeholder)}" ${f.required ? 'required' : ''}>`).join('');
     const d = $('#dlg');
     d.onclose = () => resolve(d.returnValue === 'ok' ? Object.fromEntries(new FormData(d.querySelector('form'))) : null);
+    d.returnValue = '';
     d.showModal();
-    const first = d.querySelector('input'); if (first) first.focus();
+    const first = d.querySelector('input, textarea'); if (first) first.focus();
   });
 }
 async function askCred(){
-  const r = await dialog('Sign in', [{label: 'user', name: 'u', required: true}, {label: 'password', name: 'p', type: 'password', required: true}]);
+  const r = await dialog('Sign in', [{label: 'user', name: 'u', required: true}, {label: 'password', name: 'p', type: 'password', required: true}], 'Sign in');
   if (!r) return false;
   saveCred(btoa(r.u + ':' + r.p));
   return true;
@@ -245,44 +263,504 @@ function ts(){ return new Date().toISOString().replace('T', ' ').slice(0, 19); }
 function log(text, cls){ logLines.push({text, cls}); renderLog(); }
 function renderLog(){
   const el = $('#log');
-  const lines = logOpen ? logLines : logLines.slice(-3);
+  const lines = logOpen ? logLines : logLines.slice(-4);
   el.innerHTML = lines.map(l => `<div class="${l.cls || ''}">${esc(l.text)}</div>`).join('');
   el.scrollTop = el.scrollHeight;
 }
-function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 $('#togglelog').onclick = () => { logOpen = !logOpen; renderLog(); };
 
 // every API call goes through here: Basic auth, 401 -> sign in again, errors -> log
+let signingIn = null;
 async function api(path, opts = {}){
-  if (!cred && !(await askCred())) throw new Error('not signed in');
+  if (!cred){ signingIn = signingIn || askCred().finally(() => { signingIn = null; }); if (!(await signingIn)) throw new Error('not signed in'); }
   const r = await fetch(path, Object.assign({}, opts, {
     headers: Object.assign({'content-type': 'application/json', 'authorization': 'Basic ' + cred}, opts.headers || {})}));
-  if (r.status === 401){ saveCred(''); if (await askCred()) return api(path, opts); throw new Error('not signed in'); }
+  if (r.status === 401){ saveCred(''); return api(path, opts); }
   const data = await r.json().catch(() => ({error: 'bad response'}));
-  if (!r.ok){ log(`[${ts()}] ${data.error || r.status}`, 'err'); throw new Error(data.error || r.status); }
+  if (!r.ok){ log(`[${ts()}] ${data.error || r.status}`, 'err'); const e = new Error(data.error || r.status); e.data = data; throw e; }
   return data;
 }
 $('#logout').onclick = () => { saveCred(''); location.reload(); };
 
-// ---------------- the project's part: run a command, render views into #main ----------------
+// a change the user asked for: logged with the server's time and the backend action
+async function act(label, path, opts){
+  log(`> ${label}`, 'sql');
+  const t0 = performance.now();
+  const data = await api(path, opts);
+  log(`[${ts()}] ok${data.backend ? ' · ' + data.backend : ''} (${Math.round(performance.now() - t0)} ms, server ${data.ms} ms)`, 'ok');
+  return data;
+}
+const post = body => ({method: 'POST', body: JSON.stringify(body || {})});
+
+// ---------------- lambdaflow ----------------
+const STATES = ['success', 'failed', 'running', 'queued', 'up_for_retry', 'upstream_failed', 'skipped'];
+const ACTIVE = s => s === 'running' || s === 'queued';
+const enc = encodeURIComponent;
+const st = (s, cls) => `<span class="st ${cls || ''} s-${s || 'none'}${s === 'running' ? ' pulse' : ''}" title="${esc(s || 'no status')}"></span>`;
+const badge = s => `<span class="badge">${st(s, 'round')}${esc(s || 'no status')}</span>`;
+const legend = () => `<div class="legend">${STATES.map(s => `<span>${st(s)}${s}</span>`).join('')}<span>${st(null)}no status</span></div>`;
+function fmt(t){ return t ? String(t).replace('T', ' ').replace(/(\.\d+)?(Z|\+00:00)$/, '') : '—'; }
+function secs(a, b){ if (!a) return null; return ((b ? Date.parse(b) : Date.now()) - Date.parse(a)) / 1000; }
+function dur(s){
+  if (s == null || isNaN(s)) return '—';
+  s = Math.max(0, Math.round(s));
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), r = s % 60;
+  return h ? `${h}h ${m}m` : m ? `${m}m ${r}s` : `${r}s`;
+}
+function rel(t){
+  if (!t) return '—';
+  const s = (Date.parse(t) - Date.now()) / 1000;
+  return s >= 0 ? 'in ' + dur(s) : dur(-s) + ' ago';
+}
+function topo(tasks){
+  const ids = Object.keys(tasks), done = new Set(), out = [];
+  while (out.length < ids.length){
+    const next = ids.filter(t => !done.has(t) && tasks[t].upstream.every(u => done.has(u)));
+    if (!next.length){ ids.filter(t => !done.has(t)).forEach(t => { done.add(t); out.push(t); }); break; }
+    next.forEach(t => { done.add(t); out.push(t); });
+  }
+  return out;
+}
+
+let view = {};          // {page, dag, run, task, tab, ptab, try}
+let data = {};          // the last /api/dags/<dag> response
+let pollTimer = null;
+let editing = false;
+
+function parseHash(){
+  const [path, q] = location.hash.slice(1).split('?');
+  const p = new URLSearchParams(q || '');
+  const parts = (path || '/').split('/').filter(Boolean).map(decodeURIComponent);
+  if (parts[0] === 'dag') return {page: 'dag', dag: parts[1], run: p.get('run'), task: p.get('task'), tab: p.get('tab') || 'grid', ptab: p.get('ptab') || 'log', try: p.get('try')};
+  if (parts[0] === 'errors') return {page: 'errors'};
+  return {page: 'dags', q: p.get('q') || '', f: p.get('f') || 'all'};
+}
+function go(v, replace){
+  const q = new URLSearchParams();
+  for (const k of ['run', 'task', 'tab', 'ptab', 'try', 'q', 'f']) if (v[k] && !(k === 'tab' && v[k] === 'grid') && !(k === 'ptab' && v[k] === 'log') && !(k === 'f' && v[k] === 'all')) q.set(k, v[k]);
+  const path = v.page === 'dag' ? `#/dag/${enc(v.dag)}` : v.page === 'errors' ? '#/errors' : '#/';
+  const h = path + (q.toString() ? '?' + q : '');
+  if (replace){ history.replaceState(null, '', h); route(); }
+  else if (location.hash === h) route();
+  else location.hash = h;
+}
+window.addEventListener('hashchange', route);
+
+async function route(){
+  clearTimeout(pollTimer);
+  const prev = view;
+  view = parseHash();
+  $('#nav-dags').classList.toggle('on', view.page !== 'errors');
+  $('#nav-errors').classList.toggle('on', view.page === 'errors');
+  if (view.page !== 'dag' || prev.dag !== view.dag || prev.tab !== view.tab) editing = false;
+  try {
+    if (view.page === 'dag') await renderDag(prev.page !== 'dag' || prev.dag !== view.dag);
+    else if (view.page === 'errors') await renderErrors();
+    else await renderDags();
+  } catch(e){
+    if (view.page === 'dag' && e.data && /no DAG/.test(e.data.error)) $('#main').innerHTML = `<div class="empty">DAG not found. <a href="#/">Back to DAGs</a></div>`;
+  }
+}
+function poll(ms){
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(async () => {
+    if (document.hidden || editing || $('#dlg').open){ poll(ms); return; }
+    try { view.page === 'dag' ? await renderDag(false) : view.page === 'dags' ? await renderDags(true) : null; } catch(e){ poll(ms * 2); }
+  }, ms);
+}
+
+// ---- DAG list ----
+async function renderDags(quiet){
+  const r = await api('/api/dags');
+  const q = (view.q || '').toLowerCase(), f = view.f || 'all';
+  const dags = r.dags.filter(d => (!q || d.dag_id.toLowerCase().includes(q) || d.tags.some(t => t.toLowerCase().includes(q)))
+                               && (f === 'all' || (f === 'active') === !d.paused));
+  const errs = r.import_errors;
+  const focused = document.activeElement && document.activeElement.id === 'search';
+  $('#main').innerHTML = `
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="Search DAGs or tags" value="${esc(view.q || '')}">
+      <div class="seg">${['all', 'active', 'paused'].map(x => `<button data-act="filter" data-f="${x}" class="${f === x ? 'on' : ''}">${x[0].toUpperCase() + x.slice(1)} ${x === 'all' ? r.dags.length : r.dags.filter(d => (x === 'active') === !d.paused).length}</button>`).join('')}</div>
+      <span class="grow"></span>
+      <button class="btn btn-ghost btn-small" data-act="upload">⬆ Upload DAG file</button>
+      <button class="btn btn-secondary btn-small" data-act="new-dag">+ New DAG</button>
+    </div>
+    ${errs.length ? `<details class="errors"><summary>⚠ ${errs.length} DAG file${errs.length > 1 ? 's' : ''} could not be imported</summary>${errs.map(errBlock).join('')}</details>` : ''}
+    ${r.dags.length ? `<div class="tbl"><table>
+      <tr><th style="width:56px"></th><th>DAG</th><th>Schedule</th><th>Last run</th><th>Next run</th><th>Recent runs</th><th style="width:90px">Actions</th></tr>
+      ${dags.map(d => {
+        const last = d.runs[0];
+        return `<tr>
+          <td><label class="switch" title="${d.paused ? 'paused — click to unpause' : 'active — click to pause'}"><input type="checkbox" data-act="pause" data-dag="${esc(d.dag_id)}" ${d.paused ? '' : 'checked'}><span></span></label></td>
+          <td><a href="#/dag/${enc(d.dag_id)}"><b>${esc(d.dag_id)}</b></a>
+              ${d.tags.map(t => `<span class="chip tag">${esc(t)}</span>`).join(' ')}
+              ${d.description ? `<div class="muted">${esc(d.description)}</div>` : ''}</td>
+          <td>${d.schedule ? `<span class="chip" title="EventBridge: ${esc(d.expression)} (${esc(d.timezone)})">${esc(d.schedule)}</span>` : '<span class="muted">None</span>'}</td>
+          <td>${last ? `${st(last.state, 'round')} <a class="mono" href="#/dag/${enc(d.dag_id)}?run=${enc(last.run_id)}">${esc(fmt(last.logical_date))}</a>` : '<span class="muted">—</span>'}</td>
+          <td>${d.next_run ? `<span class="mono" title="${esc(fmt(d.next_run))} UTC">${esc(fmt(d.next_run))}</span><div class="muted">${rel(d.next_run)}</div>` : '<span class="muted">—</span>'}</td>
+          <td>${d.runs.slice().reverse().map(x => `<a href="#/dag/${enc(d.dag_id)}?run=${enc(x.run_id)}" title="${esc(x.run_id)}: ${esc(x.state)}">${st(x.state)}</a>`).join(' ') || '<span class="muted">—</span>'}</td>
+          <td><button class="icon-btn" title="Trigger DAG" data-act="trigger" data-dag="${esc(d.dag_id)}">▶</button>
+              <button class="icon-btn" title="Delete DAG" data-act="delete" data-dag="${esc(d.dag_id)}">🗑</button></td>
+        </tr>`; }).join('') || `<tr><td colspan="7" class="empty">No DAG matches.</td></tr>`}
+    </table></div>` : `<div class="empty">No DAGs yet. Upload a DAG file (.py), create one here, or copy files to the bucket's <span class="mono">dags/</span> folder.</div>`}`;
+  const s = $('#search');
+  s.oninput = () => { view.q = s.value; go(view, true); };
+  if (focused){ s.focus(); s.setSelectionRange(s.value.length, s.value.length); }
+  poll(r.dags.some(d => d.runs.some(x => ACTIVE(x.state))) ? 3000 : 15000);
+}
+const errBlock = e => `<div class="one"><b class="mono">${esc(e.file)}</b> <span class="muted">${esc(fmt(e.at))}</span><div>${esc(e.error)}</div><pre>${esc(e.trace)}</pre></div>`;
+
+async function renderErrors(){
+  const r = await api('/api/import-errors');
+  $('#main').innerHTML = r.import_errors.length ? `<div class="errors" style="background:#fff">${r.import_errors.map(errBlock).join('')}</div>`
+                                                : `<div class="empty">No import errors. ✓</div>`;
+}
+
+// ---- one DAG ----
+async function renderDag(fresh){
+  const scrollers = [...document.querySelectorAll('[data-keep-scroll]')].map(el => [el.dataset.keepScroll, el.scrollLeft, el.scrollTop, el.scrollHeight - el.scrollTop - el.clientHeight < 8]);
+  data = await api(`/api/dags/${enc(view.dag)}?runs=25`);
+  const d = data.dag, runs = data.runs;
+  if (!view.run && runs.length && view.tab !== 'code' && view.tab !== 'details') view.run = runs[runs.length - 1].run_id;
+  const run = runs.find(r => r.run_id === view.run);
+  if (fresh || !$('#dag-head')){
+    $('#main').innerHTML = `
+      <div class="crumb"><a href="#/">DAGs</a> / ${esc(d.dag_id)}</div>
+      <div class="dag-head" id="dag-head"></div>
+      <div class="tabs">${['grid', 'graph', 'code', 'details'].map(t => `<button data-act="tab" data-tab="${t}" class="${view.tab === t ? 'on' : ''}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div>
+      <div id="dag-body"></div>`;
+  }
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === view.tab));
+  $('#dag-head').innerHTML = `
+    <label class="switch" title="${d.paused ? 'paused — click to unpause' : 'active — click to pause'}"><input type="checkbox" data-act="pause" data-dag="${esc(d.dag_id)}" ${d.paused ? '' : 'checked'}><span></span></label>
+    <h2>${esc(d.dag_id)}</h2>
+    ${d.tags.map(t => `<span class="chip tag">${esc(t)}</span>`).join('')}
+    <span class="meta"><span class="k">Schedule</span> ${d.schedule ? `<span class="chip" title="EventBridge: ${esc(d.expression)} (${esc(d.timezone)})">${esc(d.schedule)}</span>` : '<span class="muted">None</span>'}</span>
+    <span class="meta"><span class="k">Next run</span> <span class="mono">${d.next_run ? esc(fmt(d.next_run)) + ' · ' + rel(d.next_run) : '—'}</span></span>
+    <span class="grow"></span>
+    <button class="btn btn-primary btn-small" data-act="trigger" data-dag="${esc(d.dag_id)}">▶ Trigger</button>
+    <button class="btn btn-danger btn-small" data-act="delete" data-dag="${esc(d.dag_id)}">Delete</button>`;
+  if (view.tab === 'code'){ if (fresh || !$('#code-pane')) await renderCode(); return; }
+  if (view.tab === 'details'){ $('#dag-body').innerHTML = detailsTab(d); return; }
+  if (!$('#dag-left') || $('#dag-body').dataset.tab !== view.tab){
+    $('#dag-body').dataset.tab = view.tab;
+    $('#dag-body').innerHTML = `<div class="split"><div class="pane" id="dag-left" data-keep-scroll="left"></div><div class="panel" id="panel" data-keep-scroll="panel"></div></div>`;
+  }
+  $('#dag-left').innerHTML = (view.tab === 'graph' ? graph(d, run) : grid(d, runs)) + `<div style="margin-top:14px">${legend()}</div>`;
+  await renderPanel(d, run);
+  for (const [k, l, t, atBottom] of scrollers){
+    const el = document.querySelector(`[data-keep-scroll="${k}"]`);
+    if (el){ el.scrollLeft = l; el.scrollTop = t; }
+    const lg = document.querySelector('pre.tasklog');
+    if (k === 'log' && lg && atBottom) lg.scrollTop = lg.scrollHeight; else if (k === 'log' && lg) lg.scrollTop = t;
+  }
+  const busy = runs.some(r => ACTIVE(r.state));
+  poll(busy ? 3000 : 20000);
+}
+
+function grid(d, runs){
+  if (!runs.length) return `<div class="empty">No runs yet. ▶ Trigger one.</div>`;
+  const order = topo(d.tasks);
+  const max = Math.max(1, ...runs.map(r => secs(r.start, r.end) || 0));
+  const colSel = r => r.run_id === view.run ? ' col-sel' : '';
+  return `<table class="grid">
+    <tr class="bars"><td class="name"></td>${runs.map(r => {
+      const h = Math.max(8, Math.round(60 * (secs(r.start, r.end) || 0) / max));
+      return `<td class="${colSel(r)}"><div class="bar s-${esc(r.state)}${r.state === 'running' ? ' pulse' : ''}" style="height:${h}px" data-act="sel-run" data-run="${esc(r.run_id)}"
+        title="${esc(r.run_id)}\n${esc(r.state)} · ${dur(secs(r.start, r.end))}"></div></td>`; }).join('')}</tr>
+    ${order.map(t => `<tr><td class="name" data-act="sel-ti" data-task="${esc(t)}" title="${esc(t)}">${esc(t)}<span class="op">${esc(d.tasks[t].operator)}</span></td>
+      ${runs.map(r => { const ti = r.tis[t] || {};
+        return `<td class="cell${colSel(r)}${r.run_id === view.run && t === view.task ? ' sel' : ''}" data-act="sel-ti" data-run="${esc(r.run_id)}" data-task="${esc(t)}"
+          title="${esc(t)}\n${esc(ti.state || 'no status')}${ti.try_number ? ' · try ' + ti.try_number : ''}${ti.start ? '\n' + dur(secs(ti.start, ti.end)) : ''}">${st(ti.state)}</td>`; }).join('')}</tr>`).join('')}
+    <tr class="dates"><td class="name"></td>${runs.map((r, i) => `<td class="${colSel(r)}" style="writing-mode:vertical-rl;transform:rotate(180deg);height:62px">${(runs.length - 1 - i) % 3 === 0 ? esc(fmt(r.logical_date).slice(5, 16)) : ''}</td>`).join('')}</tr>
+  </table>`;
+}
+
+function graph(d, run){
+  const order = topo(d.tasks), rank = {}, rows = {};
+  order.forEach(t => { rank[t] = Math.max(0, ...d.tasks[t].upstream.map(u => (rank[u] ?? 0) + 1)); });
+  const pos = {};
+  order.forEach(t => { const r = rank[t]; rows[r] = (rows[r] || 0); pos[t] = [24 + r * 230, 24 + rows[r] * 70]; rows[r]++; });
+  const W = 24 + (Math.max(0, ...Object.values(rank)) + 1) * 230, H = 24 + Math.max(1, ...Object.values(rows)) * 70;
+  const color = t => { const s = run && run.tis[t] && run.tis[t].state; return s ? `var(--${s})` : '#cbd5e1'; };
+  const edges = order.flatMap(t => d.tasks[t].upstream.map(u => {
+    const [x1, y1] = pos[u], [x2, y2] = pos[t];
+    return `<path class="edge" marker-end="url(#arrow)" d="M${x1 + 170},${y1 + 22} C${x1 + 200},${y1 + 22} ${x2 - 30},${y2 + 22} ${x2 - 4},${y2 + 22}"/>`; })).join('');
+  const nodes = order.map(t => { const [x, y] = pos[t];
+    const name = t.length > 24 ? t.slice(0, 23) + '…' : t;
+    return `<g class="node${t === view.task ? ' sel' : ''}" data-act="sel-ti" data-task="${esc(t)}" ${run ? `data-run="${esc(run.run_id)}"` : ''} transform="translate(${x},${y})">
+      <title>${esc(t)}${run && run.tis[t] ? ': ' + esc(run.tis[t].state) : ''}</title>
+      <rect width="170" height="44" style="stroke:${color(t)}"/><text x="12" y="19">${esc(name)}</text><text class="op" x="12" y="34">${esc(d.tasks[t].operator)}</text></g>`; }).join('');
+  return `<div class="graph">${run ? `<div class="muted" style="margin-bottom:8px">States of run <span class="mono">${esc(run.run_id)}</span></div>` : ''}
+    <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+      <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs>
+      ${edges}${nodes}</svg></div>`;
+}
+
+async function renderPanel(d, run){
+  const p = $('#panel');
+  if (!run){ p.innerHTML = `<h3>${esc(d.dag_id)}</h3><div class="muted">${esc(d.description || 'No runs yet.')}</div>`; return; }
+  if (!view.task){
+    const counts = {};
+    Object.values(run.tis).forEach(i => { counts[i.state] = (counts[i.state] || 0) + 1; });
+    const failed = Object.values(run.tis).some(i => i.state === 'failed' || i.state === 'upstream_failed');
+    p.innerHTML = `
+      <div class="k">DAG run</div><h3 class="mono">${esc(run.run_id)}</h3>${badge(run.state)}
+      <div class="acts">
+        <button class="btn btn-ghost btn-small" data-act="clear-run" data-mode="failed" ${failed ? '' : 'disabled'}>↻ Clear failed tasks</button>
+        <button class="btn btn-ghost btn-small" data-act="clear-run" data-mode="all">↻ Clear whole run</button>
+      </div>
+      <table class="kv">
+        <tr><td>Run type</td><td>${esc(run.run_type)}</td></tr>
+        <tr><td>Logical date</td><td class="mono">${esc(fmt(run.logical_date))}</td></tr>
+        <tr><td>Queued at</td><td class="mono">${esc(fmt(run.queued_at))}</td></tr>
+        <tr><td>Start</td><td class="mono">${esc(fmt(run.start))}</td></tr>
+        <tr><td>End</td><td class="mono">${esc(fmt(run.end))}</td></tr>
+        <tr><td>Duration</td><td>${dur(secs(run.start, run.end))}</td></tr>
+        <tr><td>Conf</td><td><pre class="mono">${esc(JSON.stringify(run.conf, null, 2))}</pre></td></tr>
+        <tr><td>Tasks</td><td>${Object.entries(counts).map(([s, n]) => `${st(s)} ${n} ${esc(s)}`).join(' &nbsp; ') || '—'}</td></tr>
+      </table>
+      <div class="section-title" style="margin-top:14px">Task instances</div>
+      <table class="kv">${topo(d.tasks).map(t => { const i = run.tis[t] || {};
+        return `<tr><td><a href="javascript:void 0" data-act="sel-ti" data-task="${esc(t)}">${esc(t)}</a></td><td>${st(i.state)} ${esc(i.state || 'no status')}${i.try_number > 1 ? ` · try ${i.try_number}` : ''} <span class="muted">${i.start ? dur(secs(i.start, i.end)) : ''}</span></td></tr>`; }).join('')}</table>`;
+    return;
+  }
+  const t = view.task, info = d.tasks[t];
+  if (!info){ view.task = null; return renderPanel(d, run); }
+  const ti = run.tis[t] || {};
+  const tries = ti.try_number || 0, cur = Math.min(parseInt(view.try) || tries, tries);
+  p.innerHTML = `
+    <div class="k">Task instance · <a href="javascript:void 0" data-act="sel-run" data-run="${esc(run.run_id)}">${esc(run.run_id)}</a></div>
+    <h3>${esc(t)} <span class="muted">${esc(info.operator)}</span></h3>${badge(ti.state)} ${tries ? `<span class="muted">try ${tries} of ${(ti.max_tries ?? info.retries) + 1}</span>` : ''}
+    <div class="acts">
+      <button class="btn btn-ghost btn-small" data-act="clear-ti">↻ Clear</button>
+      <label class="check muted"><input type="checkbox" id="clear-down" checked> + downstream</label>
+      <button class="btn btn-ghost btn-small" data-act="mark" data-state="success">✓ Mark success</button>
+      <button class="btn btn-ghost btn-small" data-act="mark" data-state="failed">✗ Mark failed</button>
+    </div>
+    <div class="ptabs">${['log', 'xcom', 'details'].map(x => `<button data-act="ptab" data-ptab="${x}" class="${view.ptab === x ? 'on' : ''}">${x === 'xcom' ? 'XCom' : x[0].toUpperCase() + x.slice(1)}</button>`).join('')}</div>
+    <div id="ptab-body"></div>`;
+  const body = $('#ptab-body');
+  if (view.ptab === 'details'){
+    body.innerHTML = `<table class="kv">
+      <tr><td>State</td><td>${esc(ti.state || 'no status')}</td></tr>
+      <tr><td>Try number</td><td>${tries}</td></tr>
+      <tr><td>Start</td><td class="mono">${esc(fmt(ti.start))}</td></tr>
+      <tr><td>End</td><td class="mono">${esc(fmt(ti.end))}</td></tr>
+      <tr><td>Duration</td><td>${dur(secs(ti.start, ti.end))}</td></tr>
+      <tr><td>Operator</td><td>${esc(info.operator)}</td></tr>
+      <tr><td>Trigger rule</td><td class="mono">${esc(info.trigger_rule)}</td></tr>
+      <tr><td>Retries</td><td>${info.retries} (delay ${dur(info.retry_delay)})</td></tr>
+      <tr><td>Upstream</td><td class="mono">${esc(info.upstream.join(', ') || '—')}</td></tr>
+      <tr><td>Downstream</td><td class="mono">${esc(Object.keys(d.tasks).filter(x => d.tasks[x].upstream.includes(t)).join(', ') || '—')}</td></tr>
+    </table>`;
+  } else if (view.ptab === 'xcom'){
+    const r = await api(`/api/dags/${enc(d.dag_id)}/runs/${enc(run.run_id)}`);
+    const rows = Object.entries(r.xcom).filter(([k]) => k.startsWith(t + '.'));
+    body.innerHTML = rows.length ? `<table class="kv">${rows.map(([k, v]) => `<tr><td class="mono">${esc(k.slice(t.length + 1))}</td><td><pre class="mono">${esc(JSON.stringify(v, null, 2))}</pre></td></tr>`).join('')}</table>`
+                                 : `<div class="muted">No XCom.</div>`;
+  } else {
+    const r = await api(`/api/dags/${enc(d.dag_id)}/runs/${enc(run.run_id)}/tasks/${enc(t)}/log${cur ? '?try=' + cur : ''}`);
+    body.innerHTML = (tries > 1 ? `<div class="ptabs">${Array.from({length: tries}, (_, i) => i + 1).map(n => `<button data-act="try" data-try="${n}" class="${n === cur ? 'on' : ''}">Attempt ${n}</button>`).join('')}</div>` : '')
+      + `<pre class="tasklog" data-keep-scroll="log">${colorLog(r.log)}</pre>`;
+  }
+}
+function colorLog(text){
+  return esc(text).split('\n').map(l => /ERROR|Traceback|Error:|FAILED/.test(l) ? `<span class="lerr">${l}</span>` : /WARNING|UP_FOR_RETRY/.test(l) ? `<span class="lwarn">${l}</span>` : /^\[[^\]]+\] \{/.test(l) ? l.replace(/^(\[[^\]]+\] \{[^}]+\})/, '<span class="ldim">$1</span>') : l).join('\n');
+}
+
+function detailsTab(d){
+  const row = (k, v) => `<tr><td>${k}</td><td>${v}</td></tr>`;
+  return `<div class="split" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr)">
+    <div class="pane"><div class="section-title">DAG</div><table class="kv">
+      ${row('DAG id', `<span class="mono">${esc(d.dag_id)}</span>`)}
+      ${row('File', `<span class="mono">${esc(d.file)}</span>`)}
+      ${row('Description', esc(d.description || '—'))}
+      ${row('Schedule', `<span class="mono">${esc(d.schedule || 'None')}</span>`)}
+      ${row('EventBridge', `<span class="mono">${esc(d.expression || '—')}</span>`)}
+      ${row('Timezone', esc(d.timezone))}
+      ${row('Start date', `<span class="mono">${esc(fmt(d.start_date))}</span>`)}
+      ${row('End date', `<span class="mono">${esc(fmt(d.end_date))}</span>`)}
+      ${row('Max active runs', d.max_active_runs)}
+      ${row('Paused', d.paused ? 'yes' : 'no')}
+      ${row('Tags', d.tags.map(t => `<span class="chip tag">${esc(t)}</span>`).join(' ') || '—')}
+      ${row('Params', `<pre class="mono">${esc(JSON.stringify(d.params, null, 2))}</pre>`)}
+    </table>${d.doc_md ? `<div class="section-title" style="margin-top:14px">Docs</div><pre class="mono" style="white-space:pre-wrap">${esc(d.doc_md)}</pre>` : ''}</div>
+    <div class="pane"><div class="section-title">Tasks</div><div class="tbl"><table>
+      <tr><th>Task</th><th>Operator</th><th>Trigger rule</th><th>Retries</th><th>Upstream</th></tr>
+      ${topo(d.tasks).map(t => { const i = d.tasks[t]; return `<tr><td class="mono">${esc(t)}</td><td>${esc(i.operator)}</td><td class="mono">${esc(i.trigger_rule)}</td><td>${i.retries}</td><td class="mono">${esc(i.upstream.join(', ') || '—')}</td></tr>`; }).join('')}
+    </table></div></div></div>`;
+}
+
+// ---- code ----
+function highlight(src){
+  return src.split('\n').map(line => {
+    let out = '', rest = line;
+    const m = rest.match(/^((?:[^#'"]|'[^']*'|"[^"]*")*)(#.*)?$/);
+    const code = m ? m[1] : rest, com = m && m[2] ? m[2] : '';
+    out = esc(code).replace(/(&#39;[^]*?&#39;|&quot;[^]*?&quot;)|\b(def|class|return|import|from|as|with|for|in|if|elif|else|try|except|finally|raise|lambda|None|True|False|and|or|not|is|yield|pass|while)\b/g,
+      (s, str, kw) => str ? `<span class="str">${str}</span>` : `<span class="kw">${kw}</span>`);
+    return `<div>${out}${com ? `<span class="com">${esc(com)}</span>` : ''}</div>`;
+  }).join('');
+}
+async function renderCode(){
+  const r = await api(`/api/dags/${enc(view.dag)}/source`);
+  $('#dag-body').dataset.tab = 'code';
+  $('#dag-body').innerHTML = `<div id="code-pane">
+    <div class="toolbar"><span class="chip">${esc(r.file)}</span><span class="grow"></span>
+      <button class="btn btn-ghost btn-small" data-act="edit-code">✎ Edit</button></div>
+    <div class="code">${highlight(r.source)}</div></div>`;
+  $('#code-pane').dataset.source = r.source;
+  $('#code-pane').dataset.file = r.file;
+}
+function editor(file, source, isNew){
+  editing = true;
+  $(isNew ? '#main' : '#dag-body').innerHTML = `<div id="code-pane">
+    ${isNew ? `<div class="crumb"><a href="#/">DAGs</a> / new DAG file</div>` : ''}
+    <div class="toolbar"><span class="chip">dags/</span><input id="fname" class="mono" value="${esc(file.replace(/^dags\//, ''))}" ${isNew ? '' : 'readonly'} style="padding:6px 8px;border:2px solid var(--line);border-radius:5px;min-width:220px">
+      <span class="grow"></span><span class="hint">⌘/Ctrl+S saves · the file is parsed at once</span>
+      <button class="btn btn-ghost btn-small" data-act="cancel-code">Cancel</button>
+      <button class="btn btn-primary btn-small" data-act="save-code">Save &amp; parse</button></div>
+    <div id="save-result"></div>
+    <textarea class="editor" id="src" spellcheck="false">${esc(source)}</textarea></div>`;
+  const ta = $('#src');
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Tab'){ e.preventDefault(); const s = ta.selectionStart; ta.setRangeText('    ', s, ta.selectionEnd, 'end'); }
+    if ((e.metaKey || e.ctrlKey) && e.key === 's'){ e.preventDefault(); saveCode(); }
+  });
+  ta.focus();
+}
+async function saveCode(){
+  const name = $('#fname').value.trim();
+  if (!/^[A-Za-z0-9_.\-]+\.py$/.test(name)){ log(`[${ts()}] file name must look like my_dag.py`, 'err'); return; }
+  try {
+    const r = await act(`save dags/${name}`, `/api/files/${enc(name)}`, {method: 'PUT', body: JSON.stringify({source: $('#src').value})});
+    if (r.error){
+      $('#save-result').innerHTML = `<div class="errors">${errBlock(r.error)}</div>`;
+      return;
+    }
+    log(`[${ts()}] parsed: ${r.dags.join(', ') || 'no DAG in this file'}${r.removed.length ? ' · removed: ' + r.removed.join(', ') : ''}`, 'ok');
+    if (!r.dags.length){ $('#save-result').innerHTML = `<div class="errors">The file was saved but defines no DAG.</div>`; return; }
+    editing = false;
+    $('#main').innerHTML = '';
+    go({page: 'dag', dag: view.page === 'dag' && r.dags.includes(view.dag) ? view.dag : r.dags[0], tab: 'code'});
+  } catch(e){}
+}
+const SAMPLE = `"""A new DAG: edit, then Save & parse."""
+import datetime
+
+from airflow.sdk import DAG, task
+from airflow.providers.standard.operators.bash import BashOperator
+
+with DAG("my_dag", start_date=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
+         schedule="0 6 * * *", tags=["example"], params={"name": "world"}):
+
+    @task
+    def extract():
+        return {"rows": 42}
+
+    @task
+    def load(data, params=None):
+        print(f"loading {data['rows']} rows for {params['name']}")
+        return data["rows"]
+
+    report = BashOperator(task_id="report", bash_command="echo 'done for {{ ds }}'")
+    load(extract()) >> report
+`;
+
+// ---- actions ----
+async function trigger(dag){
+  const r = await api(`/api/dags/${enc(dag)}`);
+  const d = r.dag;
+  const f = await dialog(`Trigger ${dag}`, [
+    {type: 'textarea', name: 'conf', label: 'Configuration JSON (dag_run.conf; overrides params)', value: JSON.stringify(d.params || {}, null, 2)},
+    {name: 'logical_date', label: 'Logical date (UTC, optional)', placeholder: 'now, or e.g. 2026-01-01T00:00:00Z'},
+    ...(d.paused ? [{type: 'checkbox', name: 'unpause', label: 'Unpause the DAG (a paused DAG does not run)', value: true}] : []),
+  ], '▶ Trigger');
+  if (!f) return;
+  let conf;
+  try { conf = JSON.parse(f.conf || '{}'); } catch(e){ log(`[${ts()}] conf is not valid JSON: ${e.message}`, 'err'); return; }
+  try {
+    const out = await act(`trigger ${dag}`, `/api/dags/${enc(dag)}/runs`, post({conf, logical_date: f.logical_date.trim() || null, unpause: !!f.unpause}));
+    go({page: 'dag', dag, run: out.run_id, tab: view.page === 'dag' && view.tab === 'graph' ? 'graph' : 'grid'});
+  } catch(e){}
+}
+async function confirmBox(title, text, ok){ return !!(await dialog(title, [{type: 'note', value: text}], ok)); }
+
+document.addEventListener('change', async e => {
+  const el = e.target.closest('[data-act="pause"]');
+  if (!el) return;
+  const paused = !el.checked;
+  try { await act(`${paused ? 'pause' : 'unpause'} ${el.dataset.dag}`, `/api/dags/${enc(el.dataset.dag)}/pause`, post({paused})); }
+  catch(err){ el.checked = !el.checked; }
+  route();
+});
+
+$('#main').addEventListener('click', async e => {
+  const el = e.target.closest('[data-act]');
+  if (!el || el.dataset.act === 'pause') return;
+  const a = el.dataset.act, dag = el.dataset.dag;
+  if (a === 'filter'){ view.f = el.dataset.f; go(view, true); }
+  else if (a === 'upload') $('#file').click();
+  else if (a === 'new-dag') editor('my_dag.py', SAMPLE, true);
+  else if (a === 'trigger') trigger(dag);
+  else if (a === 'delete'){
+    if (await confirmBox(`Delete ${dag}?`, `This deletes the DAG's runs, task instances, XComs and logs, and its schedule. Its file is deleted too unless another DAG lives in it.`, 'Delete')){
+      try { await act(`delete ${dag}`, `/api/dags/${enc(dag)}`, {method: 'DELETE'}); go({page: 'dags'}); } catch(err){}
+    }
+  }
+  else if (a === 'tab') go(Object.assign({}, view, {tab: el.dataset.tab}));
+  else if (a === 'sel-run') go(Object.assign({}, view, {run: el.dataset.run, task: null, try: null}), true);
+  else if (a === 'sel-ti') go(Object.assign({}, view, {run: el.dataset.run || view.run, task: el.dataset.task, try: null}), true);
+  else if (a === 'ptab') go(Object.assign({}, view, {ptab: el.dataset.ptab}), true);
+  else if (a === 'try') go(Object.assign({}, view, {try: el.dataset.try}), true);
+  else if (a === 'clear-ti'){
+    const down = $('#clear-down').checked;
+    try { const r = await act(`clear ${view.task}${down ? ' + downstream' : ''}`, `/api/dags/${enc(view.dag)}/runs/${enc(view.run)}/clear`, post({task_ids: [view.task], downstream: down}));
+          log(`[${ts()}] cleared: ${r.cleared.join(', ')}`, 'ok'); view.try = null; renderDag(false); } catch(err){}
+  }
+  else if (a === 'clear-run'){
+    const failed = el.dataset.mode === 'failed';
+    if (!failed && !(await confirmBox('Clear the whole run?', 'Every task of this run runs again.', 'Clear'))) return;
+    try { const r = await act(`clear ${failed ? 'failed tasks' : 'run'} ${view.run}`, `/api/dags/${enc(view.dag)}/runs/${enc(view.run)}/clear`, post(failed ? {only_failed: true, downstream: true} : {}));
+          log(`[${ts()}] cleared: ${r.cleared.join(', ')}`, 'ok'); renderDag(false); } catch(err){}
+  }
+  else if (a === 'mark'){
+    try { await act(`mark ${view.task} ${el.dataset.state}`, `/api/dags/${enc(view.dag)}/runs/${enc(view.run)}/tasks/${enc(view.task)}/mark`, post({state: el.dataset.state})); renderDag(false); } catch(err){}
+  }
+  else if (a === 'edit-code'){ const p = $('#code-pane'); editor(p.dataset.file, p.dataset.source, false); }
+  else if (a === 'cancel-code'){ editing = false; view.page === 'dag' ? renderCode() : go({page: 'dags'}); }
+  else if (a === 'save-code') saveCode();
+});
+
+$('#file').onchange = async () => {
+  const f = $('#file').files[0];
+  $('#file').value = '';
+  if (!f) return;
+  const source = await f.text();
+  try {
+    const r = await act(`upload dags/${f.name}`, `/api/files/${enc(f.name)}`, {method: 'PUT', body: JSON.stringify({source})});
+    if (r.error) log(`[${ts()}] ${f.name}: ${r.error.error}`, 'err');
+    else log(`[${ts()}] parsed: ${r.dags.join(', ') || 'no DAG in this file'}`, 'ok');
+    route();
+  } catch(e){}
+};
+
+// ---- the command box: airflow CLI ----
 async function run(){
   const cmd = $('#cmd').value.trim();
   if (!cmd) return;
-  log(`> ${cmd}`, 'sql');
-  const t0 = performance.now();
-  const data = await api('/api/' + cmd);                      // example: "ping" -> GET /api/ping
-  log(`[${ts()}] ${JSON.stringify(data)} (${Math.round(performance.now() - t0)} ms, server ${data.ms} ms)`, 'ok');
-  render();
+  try {
+    const r = await act(cmd, '/api/cli', post({command: cmd}));
+    log(r.output, '');
+    if (r.run_id) go({page: 'dag', dag: r.dag_id, run: r.run_id});
+    else route();
+  } catch(e){}
 }
 $('#run').onclick = run;
 $('#cmd').addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') run(); });
 
-async function render(){
-  const data = await api('/api/items');
-  $('#main').innerHTML = `<div class="section-title">Items</div><table><tr><th>name</th></tr>` +
-    data.items.map(i => `<tr><td>${esc(i.name)}</td></tr>`).join('') + `</table>`;
-}
-render().catch(() => {});
+route();
 </script>
 </body>
 </html>

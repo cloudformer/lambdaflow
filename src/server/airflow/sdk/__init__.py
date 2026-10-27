@@ -40,6 +40,7 @@ class DAG:
         self.params = dict(kwargs.get("params") or {})
         self.tags = list(kwargs.get("tags") or [])
         self.max_active_runs = kwargs.get("max_active_runs", 16)
+        self.doc_md = kwargs.get("doc_md")
         self.tasks = {}
         LOADED.append(self)
 

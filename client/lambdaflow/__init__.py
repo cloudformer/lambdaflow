@@ -1,4 +1,4 @@
-"""<project> — a truly serverless <replaces>. Submodules are named after the standard client they mirror."""
-from . import client  # noqa: F401   rename to the standard client's module name (pymysql, redis, ...)
+"""lambdaflow — a truly serverless Airflow. `from lambdaflow import client` talks to your deployment."""
+from . import client  # noqa: F401
 
 __version__ = "0.1.0"

@@ -1,0 +1,21 @@
+{
+ "sched_daily": "2030-01-03T00:00:00Z",
+ "sched_daily_berlin": "2030-01-02T23:00:00Z",
+ "sched_day_names": "2030-01-04T08:00:00Z",
+ "sched_days_of_month": "2030-01-15T00:00:00Z",
+ "sched_every_20_min": "2030-01-02T13:20:00Z",
+ "sched_every_4_hours": "2030-01-02T16:00:00Z",
+ "sched_fri_to_sun": "2030-01-04T00:00:00Z",
+ "sched_hourly": "2030-01-02T14:00:00Z",
+ "sched_month_names": "2031-01-01T00:00:00Z",
+ "sched_monthly": "2030-02-01T00:00:00Z",
+ "sched_once": "2030-03-04T05:06:00Z",
+ "sched_once_berlin": "2030-03-04T04:06:00Z",
+ "sched_quarterly_step": "2030-04-01T12:00:00Z",
+ "sched_sunday_0": "2030-01-06T06:15:00Z",
+ "sched_sunday_7": "2030-01-06T06:15:00Z",
+ "sched_weekdays_ny": "2030-01-07T14:30:00Z",
+ "sched_weekdays_ny_summer": "2030-07-05T13:30:00Z",
+ "sched_weekly": "2030-01-06T00:00:00Z",
+ "sched_yearly": "2031-01-01T00:00:00Z"
+}

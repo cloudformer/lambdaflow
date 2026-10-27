@@ -4,11 +4,17 @@
   "assume_role_arn": "",
 
   "env": "dev",
-  "name": "<project>",
+  "name": "lambdaflow",
 
   "user": "admin",
   "password": "CHANGE-ME",
 
   "endpoint_auth": "NONE",
-  "console": true
+  "console": true,
+
+  "task_policy_arns": [],
+  "task_env": {},
+  "task_timeout": 900,
+  "worker_memory": 1024,
+  "max_parallel_tasks": 10
 }
