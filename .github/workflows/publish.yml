@@ -10,7 +10,7 @@ jobs:
       id-token: write   # the called workflow may publish with trusted publishing
     uses: cloudformer/redefine-aws-serverless-workflow/.github/workflows/reusable-publish.yml@main
     with:
-      install: "pytest boto3 moto"
+      install: "pytest boto3 moto jinja2"
       compose-service: "airflow"
       test-env: "AIRFLOW_URL=http://admin:admin@127.0.0.1:8088"
     secrets: inherit

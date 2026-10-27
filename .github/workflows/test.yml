@@ -12,6 +12,6 @@ jobs:
   test:
     uses: cloudformer/redefine-aws-serverless-workflow/.github/workflows/reusable-test.yml@main
     with:
-      install: "pytest boto3 moto"
+      install: "pytest boto3 moto jinja2"
       compose-service: "airflow"
       test-env: "AIRFLOW_URL=http://admin:admin@127.0.0.1:8088"

@@ -7,7 +7,7 @@ the run's state, every task's (state, try_number) and every XCom value. Wall-clo
 
 Real side: AIRFLOW_URL=http://admin:admin@127.0.0.1:8088 (tests/compat/docker-compose.yml, service
 airflow). Each real outcome is also written to tests/compat/expected/<test name>.json, so what Airflow does
-is visible in git and in review. COMPAT_DRY=1 runs without Docker (lambdaflow side only).
+is visible in git and in review. Without AIRFLOW_URL the lambdaflow side is compared with those recorded outcomes.
 """
 import datetime
 import json
@@ -141,10 +141,9 @@ def respects(o, edges):
 @pytest.fixture(scope="session")
 def real():
     url = os.environ.get("AIRFLOW_URL")
-    if not url:
-        if os.environ.get("COMPAT_DRY"):
-            return None
-        pytest.skip("set AIRFLOW_URL (see tests/compat/docker-compose.yml) to run against a real Airflow")
+    if not url:   # no Docker: compare with what the real Airflow recorded last time (tests/compat/expected/)
+        compat_report.versions["airflow"] = "Apache Airflow 3.3.1 — recorded outcomes in tests/compat/expected/ (no AIRFLOW_URL)"
+        return None
     af = Airflow(url)
     try:   # one check, no waiting: a container that is still starting fails fast with the reason
         health = json.loads(urllib.request.urlopen(af.base + "/api/v2/monitor/health", timeout=5).read())
@@ -158,10 +157,41 @@ def real():
     return af
 
 
+class Ours:
+    """lambdaflow in-process: moto's DynamoDB and S3, the DAG file uploaded and parsed, run_local() to the end."""
+
+    def __init__(self, db, s3):
+        from engine import Engine
+        db.create_table(TableName="lambdaflow", BillingMode="PAY_PER_REQUEST",
+                        KeySchema=[{"AttributeName": "pk", "KeyType": "HASH"}, {"AttributeName": "sk", "KeyType": "RANGE"}],
+                        AttributeDefinitions=[{"AttributeName": "pk", "AttributeType": "S"},
+                                              {"AttributeName": "sk", "AttributeType": "S"}])
+        s3.create_bucket(Bucket="lambdaflow", CreateBucketConfiguration={"LocationConstraint": "us-east-2"})
+        self.engine = Engine("lambdaflow", "lambdaflow", db=db, s3=s3)
+
+    def run(self, dag_id, conf=None):
+        from engine import run_local
+        with open(os.path.join(HERE, "dags", f"{dag_id}.py"), encoding="utf-8") as f:
+            parsed = self.engine.put_dag_file(f"{dag_id}.py", f.read())
+        if dag_id not in parsed:
+            err = self.engine.table.get_item(Key={"pk": "err", "sk": f"dags/{dag_id}.py"}).get("Item", {})
+            raise RuntimeError(f"lambdaflow could not import {dag_id}.py:\n{err.get('trace', '?')}")
+        run_id = run_local(self.engine, dag_id, LOGICAL_DATE, conf, sleep=time.sleep)
+        run, tis, xcom = self.engine.run_state(dag_id, run_id)
+        return outcome(run["state"], [(t, i["state"], int(i.get("try_number", 0)), i.get("start"), i.get("end"))
+                                      for t, i in tis.items()], xcom)
+
+
 @pytest.fixture
-def ours():
-    """lambdaflow's local executor (phase 2); until then the lambdaflow side is not run."""
-    return None
+def ours(tmp_path, monkeypatch):
+    import boto3
+    from moto import mock_aws
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-2")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
+    monkeypatch.setenv("LAMBDAFLOW_CACHE", str(tmp_path))
+    with mock_aws():
+        yield Ours(boto3.resource("dynamodb"), boto3.client("s3"))
 
 
 @pytest.fixture
@@ -176,11 +206,11 @@ def pair(real, ours, request):
                     json.dump(comparable(r), f, indent=1, sort_keys=True)
                     f.write("\n")
                 respects(r, edges)
-            if ours is None:
-                pytest.skip("lambdaflow side: phase 2 (the Airflow outcome is in tests/compat/expected/)")
+            else:
+                with open(os.path.join(HERE, "expected", f"{request.node.name}.json"), encoding="utf-8") as f:
+                    r = json.load(f)
             o = ours.run(dag_id, conf)
             respects(o, edges)
-            if r is not None:
-                assert comparable(o) == comparable(r), f"{dag_id}\n  airflow: {comparable(r)}\n  ours:    {comparable(o)}"
+            assert comparable(o) == comparable(r), f"{dag_id}\n  real: {comparable(r)}\n  ours: {comparable(o)}"
             return o
     return Pair()
