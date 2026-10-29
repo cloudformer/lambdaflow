@@ -115,10 +115,10 @@ retry_delay、XCom（含 `multiple_outputs`）、params 和 `dag_run.conf`、Jin
 dataset / asset 定时、`catchup=True`；task 最长 15 分钟（`task_timeout`）。
 
 ```bash
-python3 -m pytest tests -q                       # 全部测试，和记录下来的 Airflow 结果比（几秒）
-docker compose -f tests/compat/docker-compose.yml up -d airflow
-AIRFLOW_URL=http://admin:admin@127.0.0.1:8088 python3 -m pytest tests -q   # 和真实 Airflow 实时比，同时刷新记录
-docker compose -f tests/compat/docker-compose.yml down
+python3 -m pytest tests -q                 # 不碰 Docker：Airflow 在跑就实时比对，否则和记录下来的结果比
+python3 -m pytest tests -q --docker up     # 在 Docker 里启动 Airflow 3.3.1，等健康后测试；测完保持运行
+python3 -m pytest tests -q --docker run    # 同上，全部通过就关掉；有失败就保持运行并提示
+python3 -m pytest tests -q --docker down   # 同上，不管结果一律关掉
 ```
 
 ## 保证

@@ -91,6 +91,9 @@ tr:hover td { background: #f9fafb; }
 .s-none { background: var(--none); border-color: #cbd5e1; }
 .s-running.pulse { animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .45; } }
+.live { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.live .dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; animation: pulse 2s ease-in-out infinite; }
+.live.off .dot { background: #cbd5e1; animation: none; }
 .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
 .legend span { display: inline-flex; gap: 5px; align-items: center; }
 
@@ -326,6 +329,7 @@ let view = {};          // {page, dag, run, task, tab, ptab, try}
 let data = {};          // the last /api/dags/<dag> response
 let pollTimer = null;
 let editing = false;
+let follow = true;      // the panel follows the newest run until the user picks an older one
 
 function parseHash(){
   const [path, q] = location.hash.slice(1).split('?');
@@ -353,6 +357,7 @@ async function route(){
   $('#nav-dags').classList.toggle('on', view.page !== 'errors');
   $('#nav-errors').classList.toggle('on', view.page === 'errors');
   if (view.page !== 'dag' || prev.dag !== view.dag || prev.tab !== view.tab) editing = false;
+  if (view.page === 'dag' && (prev.page !== 'dag' || prev.dag !== view.dag)) follow = !view.run;
   try {
     if (view.page === 'dag') await renderDag(prev.page !== 'dag' || prev.dag !== view.dag);
     else if (view.page === 'errors') await renderErrors();
@@ -421,7 +426,12 @@ async function renderDag(fresh){
   const scrollers = [...document.querySelectorAll('[data-keep-scroll]')].map(el => [el.dataset.keepScroll, el.scrollLeft, el.scrollTop, el.scrollHeight - el.scrollTop - el.clientHeight < 8]);
   data = await api(`/api/dags/${enc(view.dag)}?runs=25`);
   const d = data.dag, runs = data.runs;
-  if (!view.run && runs.length && view.tab !== 'code' && view.tab !== 'details') view.run = runs[runs.length - 1].run_id;
+  const latest = runs.length ? runs[runs.length - 1].run_id : null;
+  if (latest && (follow || !view.run) && view.run !== latest){
+    if (view.run) view.try = null;          // a new run: its log, not the old attempt
+    view.run = latest;
+    history.replaceState(null, '', location.hash.replace(/([?&])run=[^&]*/, '$1run=' + enc(latest)).replace(/^(#\/dag\/[^?]*)$/, '$1?run=' + enc(latest)));
+  }
   const run = runs.find(r => r.run_id === view.run);
   if (fresh || !$('#dag-head')){
     $('#main').innerHTML = `
@@ -438,6 +448,7 @@ async function renderDag(fresh){
     <span class="meta"><span class="k">Schedule</span> ${d.schedule ? `<span class="chip" title="EventBridge: ${esc(d.expression)} (${esc(d.timezone)})">${esc(d.schedule)}</span>` : '<span class="muted">None</span>'}</span>
     <span class="meta"><span class="k">Next run</span> <span class="mono">${d.next_run ? esc(fmt(d.next_run)) + ' · ' + rel(d.next_run) : '—'}</span></span>
     <span class="grow"></span>
+    <span class="live${follow ? '' : ' off'}" data-act="follow" title="${follow ? 'following the newest run' : 'click to follow the newest run'}"><span class="dot"></span>${follow ? 'live' : 'paused on a run'} · ${new Date().toISOString().slice(11, 19)} UTC</span>
     <button class="btn btn-primary btn-small" data-act="trigger" data-dag="${esc(d.dag_id)}">▶ Trigger</button>
     <button class="btn btn-danger btn-small" data-act="delete" data-dag="${esc(d.dag_id)}">Delete</button>`;
   if (view.tab === 'code'){ if (fresh || !$('#code-pane')) await renderCode(); return; }
@@ -455,7 +466,7 @@ async function renderDag(fresh){
     if (k === 'log' && lg && atBottom) lg.scrollTop = lg.scrollHeight; else if (k === 'log' && lg) lg.scrollTop = t;
   }
   const busy = runs.some(r => ACTIVE(r.state));
-  poll(busy ? 3000 : 20000);
+  poll(busy ? 3000 : 10000);
 }
 
 function grid(d, runs){
@@ -472,7 +483,7 @@ function grid(d, runs){
       ${runs.map(r => { const ti = r.tis[t] || {};
         return `<td class="cell${colSel(r)}${r.run_id === view.run && t === view.task ? ' sel' : ''}" data-act="sel-ti" data-run="${esc(r.run_id)}" data-task="${esc(t)}"
           title="${esc(t)}\n${esc(ti.state || 'no status')}${ti.try_number ? ' · try ' + ti.try_number : ''}${ti.start ? '\n' + dur(secs(ti.start, ti.end)) : ''}">${st(ti.state)}</td>`; }).join('')}</tr>`).join('')}
-    <tr class="dates"><td class="name"></td>${runs.map((r, i) => `<td class="${colSel(r)}" style="writing-mode:vertical-rl;transform:rotate(180deg);height:62px">${(runs.length - 1 - i) % 3 === 0 ? esc(fmt(r.logical_date).slice(5, 16)) : ''}</td>`).join('')}</tr>
+    <tr class="dates"><td class="name"></td>${runs.map(r => `<td class="${colSel(r)}" style="writing-mode:vertical-rl;transform:rotate(180deg);height:62px">${esc(fmt(r.logical_date).slice(5, 16))}</td>`).join('')}</tr>
   </table>`;
 }
 
@@ -685,6 +696,7 @@ async function trigger(dag){
     go({page: 'dag', dag, run: out.run_id, tab: view.page === 'dag' && view.tab === 'graph' ? 'graph' : 'grid'});
   } catch(e){}
 }
+const isLatest = run => !!(data.runs && data.runs.length && data.runs[data.runs.length - 1].run_id === run);
 async function confirmBox(title, text, ok){ return !!(await dialog(title, [{type: 'note', value: text}], ok)); }
 
 document.addEventListener('change', async e => {
@@ -710,8 +722,9 @@ $('#main').addEventListener('click', async e => {
     }
   }
   else if (a === 'tab') go(Object.assign({}, view, {tab: el.dataset.tab}));
-  else if (a === 'sel-run') go(Object.assign({}, view, {run: el.dataset.run, task: null, try: null}), true);
-  else if (a === 'sel-ti') go(Object.assign({}, view, {run: el.dataset.run || view.run, task: el.dataset.task, try: null}), true);
+  else if (a === 'sel-run'){ follow = isLatest(el.dataset.run); go(Object.assign({}, view, {run: el.dataset.run, task: null, try: null}), true); }
+  else if (a === 'sel-ti'){ follow = isLatest(el.dataset.run || view.run); go(Object.assign({}, view, {run: el.dataset.run || view.run, task: el.dataset.task, try: null}), true); }
+  else if (a === 'follow'){ follow = !follow; renderDag(false); }
   else if (a === 'ptab') go(Object.assign({}, view, {ptab: el.dataset.ptab}), true);
   else if (a === 'try') go(Object.assign({}, view, {try: el.dataset.try}), true);
   else if (a === 'clear-ti'){

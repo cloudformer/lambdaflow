@@ -3,9 +3,10 @@
 One test = one feature; docstring "Category | Feature | note". The list only grows. Each test runs one DAG
 from tests/compat/dags/ on both sides (see conftest.py). Run with:
 
-    docker compose -f tests/compat/docker-compose.yml up -d airflow
-    AIRFLOW_URL=http://admin:admin@127.0.0.1:8088 python3 -m pytest tests -q
-    docker compose -f tests/compat/docker-compose.yml down
+    python3 -m pytest tests -q                 # Docker left alone: live if Airflow runs, else expected/
+    python3 -m pytest tests -q --docker up     # start, wait until healthy, test, keep running
+    python3 -m pytest tests -q --docker run    # ... stop if all passed
+    python3 -m pytest tests -q --docker down   # ... always stop
 """
 import pytest
 

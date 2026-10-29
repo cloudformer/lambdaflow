@@ -1,10 +1,10 @@
 # lambdaflow compatibility report · [tasks](TASKS.md)
 
-Generated 2026-10-26 by `pytest tests` · lambdaflow 0.1.0 · Python 3.9.6
+Generated 2026-10-27 by `pytest tests` · lambdaflow 0.1.0 · Python 3.9.6
 
 Each row is one feature exercised the same way on the reference and on the project; results, types and errors must match. The feature list only grows (a removed case would show in git), so the support percentage can only move up.
 
-Whole test run: **78 passed**, 0 failed, 1 expected failures (known gaps), 0 skipped — regression suite (`tests/`) and compatibility suite (`tests/compat/`) together.
+Whole test run: **89 passed**, 0 failed, 1 expected failures (known gaps), 0 skipped — regression suite (`tests/`) and compatibility suite (`tests/compat/`) together.
 
 Open tasks: none — see [TASKS.md](TASKS.md).
 
@@ -21,7 +21,7 @@ What each business step is checked by. ✅ every listed test passed · 🔴 one 
 | 5. Templates: `{{ ds }}`, params, conf, macros; Bash output | rendered values compared with Airflow | `test_templates`<br>`test_branching_conf` | ✅ 2/2 |
 | 6. Scheduling: Airflow schedule → EventBridge Scheduler, pause, max_active_runs | translation and refusals unit-tested; the first run after start_date of 19 schedules compared with Airflow's next_dagrun_run_after; moto Scheduler: the DAG's schedule is created, updated, disabled when paused, deleted with the DAG; a run waits while max_active_runs are running | `test_cron_to_eventbridge`<br>`test_timedelta_to_rate`<br>`test_once_and_timezone_come_from_start_date`<br>`test_refused_with_the_reason`<br>`test_next_fire`<br>`test_next_fire_of_at_and_rate`<br>`test_schedules`<br>`test_schedule_timedelta`<br>`test_schedule_refused`<br>`test_an_unsupported_schedule_is_an_import_error`<br>`test_the_schedule_follows_the_dag`<br>`test_max_active_runs_keeps_a_run_queued` | ✅ 45/45 |
 | 7. Task logs, retries, a worker that dies | print / logging / traceback captured to S3 per attempt (Airflow's log path); a timed-out worker is reported by the state machine and retried like any failure | `test_task_logs_retries_and_a_dead_worker` | ✅ 1/1 |
-| 8. Console actions: trigger, pause, clear, mark, delete, the airflow CLI box | console Lambda in-process with moto, the state machine replaced by the worker loop; clear gives the task its retries again (Airflow's max_tries) | `test_console_is_public_and_api_needs_auth`<br>`test_upload_trigger_and_read_back_a_run`<br>`test_clear_failed_and_mark`<br>`test_import_errors_unknown_dags_and_delete`<br>`test_pause_unpause`<br>`test_the_airflow_cli_box`<br>`test_clear_reruns_the_task_and_its_downstream_with_the_next_try`<br>`test_mark_success_on_the_failed_leaf_makes_the_run_succeed`<br>`test_delete_dag_removes_runs_logs_and_the_file` | ✅ 9/9 · ⏳ the page itself: by hand in `python3 src/server/dev.py` |
+| 8. Console actions and the pip client: trigger, pause, clear, mark, delete, the airflow CLI box | console Lambda in-process with moto, the state machine replaced by the worker loop; clear gives the task its retries again (Airflow's max_tries) | `test_console_is_public_and_api_needs_auth`<br>`test_upload_trigger_and_read_back_a_run`<br>`test_clear_failed_and_mark`<br>`test_import_errors_unknown_dags_and_delete`<br>`test_pause_unpause`<br>`test_the_airflow_cli_box`<br>`test_the_pip_client_drives_the_console`<br>`test_clear_reruns_the_task_and_its_downstream_with_the_next_try`<br>`test_mark_success_on_the_failed_leaf_makes_the_run_succeed`<br>`test_delete_dag_removes_runs_logs_and_the_file` | ✅ 10/10 · ⏳ the page itself: by hand in `python3 src/server/dev.py` |
 | 9. Variables / Connections; ssm and secretsmanager backends | moto | — | ⏳ later phase |
 | 10. Real orchestration: Step Functions loop calling Lambda, EventBridge firing, IAM, real DynamoDB and S3 | not testable locally: `drive()` makes the same `step` / `run_task` calls the state machine makes, `worker.loop()` the same first state; verified on AWS after `terraform apply` | — | ⏳ after deploy |
 

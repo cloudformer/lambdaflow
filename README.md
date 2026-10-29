@@ -122,10 +122,10 @@ deferrable operators, dynamic task mapping, dataset / asset schedules, `catchup=
 limited to 15 minutes (`task_timeout`).
 
 ```bash
-python3 -m pytest tests -q                       # everything, against recorded Airflow outcomes (seconds)
-docker compose -f tests/compat/docker-compose.yml up -d airflow
-AIRFLOW_URL=http://admin:admin@127.0.0.1:8088 python3 -m pytest tests -q   # live comparison, refreshes the record
-docker compose -f tests/compat/docker-compose.yml down
+python3 -m pytest tests -q                 # leaves Docker alone: live if Airflow is running, else the recorded outcomes
+python3 -m pytest tests -q --docker up     # starts Airflow 3.3.1 in Docker, waits until healthy, tests; keeps it running
+python3 -m pytest tests -q --docker run    # the same, then stops it if all passed (on a failure it keeps running)
+python3 -m pytest tests -q --docker down   # the same, then stops it whatever the result
 ```
 
 ## Guarantees

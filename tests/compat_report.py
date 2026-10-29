@@ -5,6 +5,8 @@ its docstring is "Category | Feature | short note", an xfail marker's reason is 
 in TASKS.md that closes it), @pytest.mark.quirk + xfail = documented difference we do not imitate,
 @pytest.mark.unsupported = the project refuses it on purpose. Outcomes of the whole run are rendered at
 session end, with the actual diff for rows that fail unexpectedly.
+
+The reference service in Docker (the `--docker up | run | down` commands) lives in compat_docker.py.
 """
 import collections
 import datetime

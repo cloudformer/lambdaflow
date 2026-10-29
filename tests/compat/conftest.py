@@ -23,6 +23,7 @@ import urllib.request
 
 import pytest
 
+import compat_docker
 import compat_report
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -158,14 +159,23 @@ def real():
         compat_report.versions["airflow"] = "Apache Airflow 3.3.1 — recorded outcomes in tests/compat/expected/ (no AIRFLOW_URL)"
         return None
     af = Airflow(url)
-    try:   # one check, no waiting: a container that is still starting fails fast with the reason
-        health = json.loads(urllib.request.urlopen(af.base + "/api/v2/monitor/health", timeout=5).read())
-    except (OSError, ValueError) as e:
-        pytest.exit(f"Airflow at {af.base} is not up ({e}); wait until "
-                    "`docker compose -f tests/compat/docker-compose.yml ps` shows healthy", returncode=1)
-    down = [k for k, v in health.items() if isinstance(v, dict) and v.get("status") not in (None, "healthy")]
-    if down:
-        pytest.exit(f"Airflow is up but not healthy yet: {', '.join(down)}; try again in a few seconds", returncode=1)
+    # without --docker: one check, fail fast with the reason. With --docker the container's healthcheck (the API)
+    # has passed: give the scheduler and dag processor up to two minutes to report healthy too.
+    end = time.time() + (120 if compat_docker.docker["mode"] else 0)
+    while True:
+        try:
+            health = json.loads(urllib.request.urlopen(af.base + "/api/v2/monitor/health", timeout=5).read())
+            down = [k for k, v in health.items() if isinstance(v, dict) and v.get("status") not in (None, "healthy")]
+        except (OSError, ValueError) as e:
+            health, down = None, [str(e)]
+        if not down:
+            break
+        if time.time() > end:
+            if health is None:
+                pytest.exit(f"Airflow at {af.base} is not up ({down[0]}); start it: python3 -m pytest tests -q --docker up",
+                            returncode=1)
+            pytest.exit(f"Airflow is up but not healthy yet: {', '.join(down)}; try again in a few seconds", returncode=1)
+        time.sleep(3)
     compat_report.versions["airflow"] = f"Apache Airflow {af.version()} (Docker)"
     return af
 
