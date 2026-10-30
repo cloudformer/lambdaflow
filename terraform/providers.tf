@@ -18,11 +18,11 @@ provider "aws" {
     for_each = var.assume_role_arn != "" ? [1] : []
     content {
       role_arn     = var.assume_role_arn
-      session_name = "${var.name}-deploy"
+      session_name = "${var.project_name}-deploy"
     }
   }
 
   default_tags {
-    tags = { project = var.name, env = var.env }
+    tags = { project = var.project_name, env = var.env }
   }
 }

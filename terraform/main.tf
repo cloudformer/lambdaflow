@@ -15,7 +15,7 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 locals {
-  prefix  = "${var.name}-${var.env}"
+  prefix  = "${var.project_name}-${var.env}"
   account = data.aws_caller_identity.current.account_id
   region  = data.aws_region.current.region
   group   = local.prefix
@@ -120,7 +120,7 @@ resource "aws_iam_role_policy" "worker" {
     Version = "2012-10-17"
     Statement = [
       { Effect = "Allow", Action = ["logs:CreateLogStream", "logs:PutLogEvents"], Resource = "${aws_cloudwatch_log_group.worker.arn}:*" },
-      { Effect   = "Allow", Action = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query"],
+      { Effect = "Allow", Action = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query"],
       Resource = aws_dynamodb_table.main.arn },
       { Effect = "Allow", Action = ["s3:GetObject"], Resource = ["${aws_s3_bucket.main.arn}/dags/*", "${aws_s3_bucket.main.arn}/logs/*"] },
       { Effect = "Allow", Action = ["s3:PutObject"], Resource = "${aws_s3_bucket.main.arn}/logs/*" },
@@ -169,7 +169,7 @@ locals {
     StartAt = "Begin"
     States = {
       Begin = { # {"action": "start"} from EventBridge Scheduler, {"action": "resume"} from the console
-        Type = "Task", Resource = local.invoke, OutputPath = "$.Payload", Retry = local.lambda_retry, Next = "Go"
+        Type       = "Task", Resource = local.invoke, OutputPath = "$.Payload", Retry = local.lambda_retry, Next = "Go"
         Parameters = { FunctionName = aws_lambda_function.worker.arn, "Payload.$" = "$" }
       }
       Go = {
@@ -177,7 +177,7 @@ locals {
         Choices = [{ Variable = "$.go", BooleanEquals = true, Next = "Step" }]
       }
       Step = {
-        Type = "Task", Resource = local.invoke, OutputPath = "$.Payload", Next = "Route"
+        Type       = "Task", Resource = local.invoke, OutputPath = "$.Payload", Next = "Route"
         Parameters = { FunctionName = aws_lambda_function.worker.arn, Payload = { action = "step", "dag_id.$" = "$.dag_id", "run_id.$" = "$.run_id" } }
         Retry      = concat(local.lambda_retry, [{ ErrorEquals = ["States.ALL"], IntervalSeconds = 5, MaxAttempts = 3, BackoffRate = 2 }])
       }
@@ -186,19 +186,19 @@ locals {
         Choices = [{ Variable = "$.done", IsPresent = true, Next = "Done" }, { Variable = "$.tasks", IsPresent = true, Next = "RunTasks" }]
       }
       RunTasks = {
-        Type = "Map", ItemsPath = "$.tasks", MaxConcurrency = var.max_parallel_tasks, ResultPath = null, Next = "Step"
+        Type         = "Map", ItemsPath = "$.tasks", MaxConcurrency = var.max_parallel_tasks, ResultPath = null, Next = "Step"
         ItemSelector = { "dag_id.$" = "$.dag_id", "run_id.$" = "$.run_id", "task_id.$" = "$$.Map.Item.Value" }
         ItemProcessor = {
           ProcessorConfig = { Mode = "INLINE" }
           StartAt         = "RunTask"
           States = {
             RunTask = {
-              Type = "Task", Resource = local.invoke, Retry = local.lambda_retry, End = true
+              Type       = "Task", Resource = local.invoke, Retry = local.lambda_retry, End = true
               Parameters = { FunctionName = aws_lambda_function.worker.arn, Payload = { action = "run_task", "dag_id.$" = "$.dag_id", "run_id.$" = "$.run_id", "task_id.$" = "$.task_id" } }
               Catch      = [{ ErrorEquals = ["States.ALL"], ResultPath = "$.error", Next = "TaskFailed" }] # timeout, out of memory
             }
             TaskFailed = {
-              Type = "Task", Resource = local.invoke, Retry = local.lambda_retry, End = true
+              Type       = "Task", Resource = local.invoke, Retry = local.lambda_retry, End = true
               Parameters = { FunctionName = aws_lambda_function.worker.arn, Payload = { action = "task_failed", "dag_id.$" = "$.dag_id", "run_id.$" = "$.run_id", "task_id.$" = "$.task_id", "error.$" = "$.error" } }
             }
           }
@@ -266,15 +266,15 @@ resource "aws_iam_role_policy" "console" {
     Version = "2012-10-17"
     Statement = [
       { Effect = "Allow", Action = ["logs:CreateLogStream", "logs:PutLogEvents"], Resource = "${aws_cloudwatch_log_group.console.arn}:*" },
-      { Effect   = "Allow", Action = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:BatchWriteItem"],
+      { Effect = "Allow", Action = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:BatchWriteItem"],
       Resource = aws_dynamodb_table.main.arn },
       { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"], Resource = ["${aws_s3_bucket.main.arn}/dags/*", "${aws_s3_bucket.main.arn}/logs/*"] },
       { Effect = "Allow", Action = ["s3:ListBucket"], Resource = aws_s3_bucket.main.arn },
       { Effect = "Allow", Action = "lambda:InvokeFunction", Resource = aws_lambda_function.worker.arn },
       { Effect = "Allow", Action = "states:StartExecution", Resource = aws_sfn_state_machine.run.arn },
-      { Effect   = "Allow", Action = ["scheduler:GetSchedule", "scheduler:CreateSchedule", "scheduler:UpdateSchedule", "scheduler:DeleteSchedule"],
+      { Effect = "Allow", Action = ["scheduler:GetSchedule", "scheduler:CreateSchedule", "scheduler:UpdateSchedule", "scheduler:DeleteSchedule"],
       Resource = "arn:aws:scheduler:${local.region}:${local.account}:schedule/${local.group}/*" },
-      { Effect    = "Allow", Action = "iam:PassRole", Resource = aws_iam_role.scheduler.arn,
+      { Effect = "Allow", Action = "iam:PassRole", Resource = aws_iam_role.scheduler.arn,
       Condition = { StringEquals = { "iam:PassedToService" = "scheduler.amazonaws.com" } } },
     ]
   })
@@ -293,8 +293,8 @@ resource "aws_lambda_function" "console" {
   memory_size      = 512
   environment {
     variables = {
-      USER_NAME          = var.user
-      PASSWORD           = var.password
+      USER_NAME          = var.console_auth_username
+      PASSWORD           = var.console_auth_password
       CONSOLE            = var.console ? "1" : "0"
       TABLE              = aws_dynamodb_table.main.name
       BUCKET             = aws_s3_bucket.main.id
@@ -330,12 +330,12 @@ resource "aws_s3_bucket_notification" "dags" {
   depends_on = [aws_lambda_permission.s3]
 }
 
-# endpoint_auth = NONE:    public URL, our user/password is the only gate. A public URL
-#                          needs BOTH permission statements (AWS requirement since Oct 2025).
-# endpoint_auth = AWS_IAM: AWS verifies SigV4 + IAM first; no public permissions are created.
+# function_url_auth = NONE:    public URL, our user/password is the only gate. A public URL
+#                              needs BOTH permission statements (AWS requirement since Oct 2025).
+# function_url_auth = AWS_IAM: AWS verifies SigV4 + IAM first; no public permissions are created.
 resource "aws_lambda_function_url" "console" {
   function_name      = aws_lambda_function.console.function_name
-  authorization_type = var.endpoint_auth
+  authorization_type = var.function_url_auth
   cors {
     allow_origins = ["*"]
     allow_methods = ["*"]
@@ -344,7 +344,7 @@ resource "aws_lambda_function_url" "console" {
 }
 
 resource "aws_lambda_permission" "url" {
-  count                  = var.endpoint_auth == "NONE" ? 1 : 0
+  count                  = var.function_url_auth == "NONE" ? 1 : 0
   statement_id           = "AllowPublicFunctionUrl"
   action                 = "lambda:InvokeFunctionUrl"
   function_name          = aws_lambda_function.console.function_name
@@ -353,7 +353,7 @@ resource "aws_lambda_permission" "url" {
 }
 
 resource "aws_lambda_permission" "url_invoke" {
-  count                    = var.endpoint_auth == "NONE" ? 1 : 0
+  count                    = var.function_url_auth == "NONE" ? 1 : 0
   statement_id             = "AllowPublicFunctionUrlInvoke"
   action                   = "lambda:InvokeFunction"
   function_name            = aws_lambda_function.console.function_name

@@ -39,7 +39,7 @@ schedule 触发两次也只建一个 run，task 不会跑两遍。task 日志按
 ### 1. 部署（Terraform）
 
 ```bash
-cp terraform/example.json terraform/my.json      # aws_profile、env、user、password；task 需要的权限填 task_policy_arns
+cp terraform/example.json terraform/my.json      # aws_profile、env、console_auth_username、console_auth_password；task 需要的权限填 task_policy_arns
 terraform -chdir=terraform init
 terraform -chdir=terraform apply -var-file=my.json
 terraform -chdir=terraform output                 # console_url、dags_folder
@@ -50,7 +50,7 @@ apply 时会在本机跑一次 `pip`，打包 Lambda layer（jinja2、tzdata）�
 
 ### 2. 打开控制台
 
-打开 `console_url`，用 `user` / `password` 登录。DAG 列表（暂停开关、schedule、下次运行、最近运行、导入错误）
+打开 `console_url`，用 `console_auth_username` / `console_auth_password` 登录。DAG 列表（暂停开关、schedule、下次运行、最近运行、导入错误）
 和每个 DAG 的 **Grid**、**Graph**、**Code**、**Details** 视图都仿照 Airflow UI；点格子看 task 的日志、XCom，
 可以 **Clear**、**Mark success / failed**。可以在浏览器里上传或直接写 DAG 文件。命令框接受 airflow CLI 命令：
 `dags trigger my_dag -c '{"x": 1}'`、`dags list-runs my_dag`、`tasks states-for-dag-run my_dag <run_id>`（`help` 列出全部）。

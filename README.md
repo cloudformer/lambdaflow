@@ -42,7 +42,7 @@ fires twice creates one run and no task runs twice. Task logs go to **S3** in Ai
 ### 1. Deploy (Terraform)
 
 ```bash
-cp terraform/example.json terraform/my.json      # aws_profile, env, user, password; task_policy_arns for your tasks
+cp terraform/example.json terraform/my.json      # aws_profile, env, console_auth_username, console_auth_password; task_policy_arns for your tasks
 terraform -chdir=terraform init
 terraform -chdir=terraform apply -var-file=my.json
 terraform -chdir=terraform output                 # console_url, dags_folder
@@ -53,7 +53,7 @@ The apply runs `pip` once on your machine to build the Lambda layer (jinja2, tzd
 
 ### 2. Open the console
 
-Open `console_url`, sign in with `user` / `password`. The DAG list (pause switch, schedule, next run,
+Open `console_url`, sign in with `console_auth_username` / `console_auth_password`. The DAG list (pause switch, schedule, next run,
 recent runs, import errors) and each DAG's **Grid**, **Graph**, **Code** and **Details** views look like the
 Airflow UI; click a square for the task's log, XCom, **Clear** and **Mark success / failed**. Upload or
 write DAG files in the browser. The command box takes airflow CLI commands: `dags trigger my_dag -c '{"x": 1}'`,

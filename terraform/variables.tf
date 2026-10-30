@@ -28,27 +28,23 @@ variable "env" {
   default     = "dev"
 }
 
-variable "name" {
-  description = "Project name; resources are <name>-<env>-console, <name>-<env>-worker, ..."
+variable "project_name" {
+  description = "Project name; resources are <project_name>-<env>-console, <project_name>-<env>-worker, ..."
   type        = string
   default     = "lambdaflow"
 }
 
-# ---- the service's credentials (HTTP Basic on the Function URL) ----
-variable "user" {
-  type = string
+# ---- the Function URL: console, gate, login ----
+variable "console" {
+  description = "Serve the built-in web console at GET /. false = API only."
+  type        = bool
+  default     = true
 }
 
-variable "password" {
-  type      = string
-  sensitive = true
-}
-
-# ---- the endpoint's gate ----
-variable "endpoint_auth" {
+variable "function_url_auth" {
   description = <<-EOT
     How the Function URL is protected:
-      NONE    = public URL; only user/password (HTTP Basic) is checked      <- default
+      NONE    = public URL; only console_auth_username/password (HTTP Basic) is checked      <- default
       AWS_IAM = AWS checks a SigV4 signature + IAM permission first. The browser console
                 cannot sign requests, so it is unusable in this mode.
   EOT
@@ -56,15 +52,20 @@ variable "endpoint_auth" {
   default     = "NONE"
 
   validation {
-    condition     = contains(["NONE", "AWS_IAM"], var.endpoint_auth)
-    error_message = "endpoint_auth must be NONE or AWS_IAM."
+    condition     = contains(["NONE", "AWS_IAM"], var.function_url_auth)
+    error_message = "function_url_auth must be NONE or AWS_IAM."
   }
 }
 
-variable "console" {
-  description = "Serve the built-in web console at GET /. false = API only."
-  type        = bool
-  default     = true
+variable "console_auth_username" {
+  description = "HTTP Basic user: console login AND every API client; still required with console = false"
+  type        = string
+}
+
+variable "console_auth_password" {
+  description = "HTTP Basic password: console login AND every API client"
+  type        = string
+  sensitive   = true
 }
 
 # ---- lambdaflow ----
