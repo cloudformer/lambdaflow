@@ -155,5 +155,4 @@ tests/            回归测试；tests/compat/ 兼容性测试、REPORT.md、TAS
 
 ---
 
-**[Redefine AWS Serverless](https://github.com/topics/redefine-aws-serverless)** 系列之一 —— 空闲也计费的 AWS 服务，
-用空闲时 ≈ $0 的基础服务重做。MIT。
+**[IdleFree](https://cloudformer.github.io/#zh)** 系列之一 —— 把空闲也计费的 AWS 服务和自建应用，重建成空闲 ≈ $0。MIT。

@@ -2,7 +2,7 @@
 
 **Python client for [lambdaflow](https://github.com/cloudformer/lambdaflow) — a truly serverless Airflow:
 Airflow 3 DAG files on Lambda, Step Functions, EventBridge Scheduler, DynamoDB and S3, ≈ $0 when idle.**
-Part of [Redefine AWS Serverless](https://github.com/topics/redefine-aws-serverless).
+Part of [IdleFree](https://cloudformer.github.io/).
 
 ![lambdaflow architecture](https://raw.githubusercontent.com/cloudformer/lambdaflow/main/docs/architecture.svg)
 

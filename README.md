@@ -164,5 +164,5 @@ CI runs the whole suite on every push. A release is a tag: bump the version in `
 
 ---
 
-Part of **[Redefine AWS Serverless](https://github.com/topics/redefine-aws-serverless)** — AWS services that bill
-while idle, rebuilt on primitives that cost ≈ $0 when idle. MIT.
+Part of **[IdleFree](https://cloudformer.github.io/)** — AWS services and self-hosted apps rebuilt to cost ≈ $0 when
+idle. MIT.
