@@ -89,7 +89,7 @@ aws s3 cp my_dag.py "$(terraform -chdir=terraform output -raw dags_folder)"   # 
 
 ```bash
 pip install boto3 moto jinja2
-python3 src/server/dev.py my_dags/        # http://127.0.0.1:8080，admin / admin；AWS 在内存里模拟
+python3 client/lambdaflow/server/dev.py my_dags/        # http://127.0.0.1:8080，admin / admin；AWS 在内存里模拟
 ```
 
 同一套控制台、worker 和调度逻辑；状态机换成一个线程，EventBridge 换成一个定时器。
@@ -141,11 +141,11 @@ python3 -m pytest tests -q --docker down   # 同上，不管结果一律关掉
 ## 仓库结构
 
 ```
-src/server/       lambda_function.py（控制台 + API）、worker.py（运行 DAG 代码）、engine.py（调度逻辑）、
-                  schedule.py（cron → EventBridge）、airflow/（Airflow 3 的编写 API）、index.html、dev.py
-terraform/        部署
-cloudformation/   （暂未提供）
-tests/            回归测试；tests/compat/ 兼容性测试、REPORT.md、TASKS.md
+client/lambdaflow/server/  lambda_function.py（控制台 + API）、worker.py（运行 DAG 代码）、engine.py（调度逻辑）、
+                           schedule.py（cron → EventBridge）、airflow/（Airflow 3 的编写 API）、index.html、dev.py
+terraform/                 部署
+cloudformation/            （暂未提供）
+tests/                     回归测试；tests/compat/ 兼容性测试、REPORT.md、TASKS.md
 ```
 
 ## 发布

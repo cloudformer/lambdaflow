@@ -76,7 +76,7 @@ CONFIG = {
           "test_engine.py::test_clear_reruns_the_task_and_its_downstream_with_the_next_try",
           "test_engine.py::test_mark_success_on_the_failed_leaf_makes_the_run_succeed",
           "test_engine.py::test_delete_dag_removes_runs_logs_and_the_file"],
-         "the page itself: by hand in `python3 src/server/dev.py`"),
+         "the page itself: by hand in `python3 client/lambdaflow/server/dev.py`"),
         ("9. Variables / Connections; ssm and secretsmanager backends",
          "moto", [], "later phase"),
         ("10. Real orchestration: Step Functions loop calling Lambda, EventBridge firing, IAM, real DynamoDB and S3",

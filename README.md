@@ -94,7 +94,7 @@ New DAGs start paused, as in Airflow. What your tasks may touch in AWS is grante
 
 ```bash
 pip install boto3 moto jinja2
-python3 src/server/dev.py my_dags/        # http://127.0.0.1:8080, admin / admin; AWS mocked in memory
+python3 client/lambdaflow/server/dev.py my_dags/        # http://127.0.0.1:8080, admin / admin; AWS mocked in memory
 ```
 
 The same console, worker and planner; the state machine is a thread, EventBridge a timer.
@@ -149,11 +149,11 @@ MWAA — see [MIGRATION.md](MIGRATION.md).
 ## Repository layout
 
 ```
-src/server/       lambda_function.py (console + API), worker.py (runs DAG code), engine.py (planner),
-                  schedule.py (cron → EventBridge), airflow/ (the Airflow 3 authoring API), index.html, dev.py
-terraform/        deployment
-cloudformation/   (not yet)
-tests/            regression suite; tests/compat/ compatibility suite, REPORT.md, TASKS.md
+client/lambdaflow/server/  lambda_function.py (console + API), worker.py (runs DAG code), engine.py (planner),
+                           schedule.py (cron → EventBridge), airflow/ (the Airflow 3 authoring API), index.html, dev.py
+terraform/                 deployment
+cloudformation/            (not yet)
+tests/                     regression suite; tests/compat/ compatibility suite, REPORT.md, TASKS.md
 ```
 
 ## Releasing

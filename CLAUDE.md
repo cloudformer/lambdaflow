@@ -95,10 +95,11 @@ s3rds (github.com/cloudformer/s3rds) is the reference implementation; when in do
 ## Layout (do not move things)
 
 ```
-src/server/       lambda_function.py (shared helpers on top, routes below), index.html (console)
-client/<project>/ the pip package; pyproject.toml; README.md is the PyPI page
+client/<project>/          the pip package; pyproject.toml; README.md is the PyPI page
+client/<project>/server/   lambda_function.py (shared helpers on top, routes below), index.html (console);
+                           the Lambda zip's root (flat imports), shipped in the pip package too
 terraform/ cloudformation/
-tests/            regression; tests/compat/ compatibility (conftest = harness, test_<ref>.py = feature list,
-                  REPORT.md generated, TASKS.md numbered tasks), tests/compat_report.py (edit CONFIG only)
-.github/workflows test.yml (every push), publish.yml (tags)
+tests/                     regression; tests/compat/ compatibility (conftest = harness, test_<ref>.py = feature list,
+                           REPORT.md generated, TASKS.md numbered tasks), tests/compat_report.py (edit CONFIG only)
+.github/workflows          test.yml (every push), publish.yml (tags)
 ```

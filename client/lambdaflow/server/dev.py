@@ -1,6 +1,6 @@
 """lambdaflow on a laptop: the console, the worker and a scheduler in one process, AWS mocked by moto.
 
-    python3 src/server/dev.py [dags folder] [--port 8080]
+    python3 client/lambdaflow/server/dev.py [dags folder] [--port 8080]
 
 Opens http://127.0.0.1:8080 (user admin, password admin). The DAG files of the folder are uploaded at start
 (default: tests/compat/dags); everything else is done in the console. Nothing is kept: the table and the

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1 — 2026-11-15
+
+The Lambda code ships in the pip package: `src/server/` moved to `client/lambdaflow/server/` (handlers
+`lambdaflow.server.lambda_function.lambda_handler` and `lambdaflow.server.worker.lambda_handler`), so a deployment
+can come from a PyPI release. `pip install "lambdaflow[server]"` adds the server's dependencies. Nothing else
+changes: the same files, the same Lambda zip.
+
 ## 0.1.0 — 2026-10-27
 
 First release.

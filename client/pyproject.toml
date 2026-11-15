@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lambdaflow"
-version = "0.1.0"
+version = "0.1.1"
 description = "A truly serverless Airflow on your own AWS account: Airflow 3 DAG files on Lambda, Step Functions, EventBridge Scheduler and DynamoDB, ≈ $0 when idle. Python client for the deployment."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -19,6 +19,9 @@ classifiers = [
 ]
 dependencies = []  # standard library only
 
+[project.optional-dependencies]
+server = ["boto3", "jinja2", "tzdata"]   # what the server imports; on Lambda boto3 is built in, jinja2 + tzdata are the layer
+
 [project.urls]
 Homepage = "https://github.com/cloudformer/lambdaflow"
 IdleFree = "https://cloudformer.github.io/"
@@ -29,4 +32,15 @@ Changelog = "https://github.com/cloudformer/lambdaflow/blob/main/CHANGELOG.md"
 Issues = "https://github.com/cloudformer/lambdaflow/issues"
 
 [tool.setuptools]
-packages = ["lambdaflow"]
+packages = [   # lambdaflow.server = the Lambdas (handlers lambdaflow.server.lambda_function / .worker .lambda_handler)
+  "lambdaflow",
+  "lambdaflow.server",
+  "lambdaflow.server.airflow",
+  "lambdaflow.server.airflow.sdk",
+  "lambdaflow.server.airflow.providers",
+  "lambdaflow.server.airflow.providers.standard",
+  "lambdaflow.server.airflow.providers.standard.operators",
+]
+
+[tool.setuptools.package-data]
+"lambdaflow.server" = ["index.html"]   # the console

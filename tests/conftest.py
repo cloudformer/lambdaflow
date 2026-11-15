@@ -1,4 +1,4 @@
-"""Test setup: src/server and client/ on the import path; the compatibility-report hooks.
+"""Test setup: client/lambdaflow/server and client/ on the import path; the compatibility-report hooks.
 
 The report hooks must live in the ROOT conftest so they see the whole run (regression + compat).
 """
@@ -7,7 +7,7 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "src", "server"))
+sys.path.insert(0, os.path.join(ROOT, "client", "lambdaflow", "server"))
 sys.path.insert(0, os.path.join(ROOT, "client"))
 
 # the pip / import name, read from client/pyproject.toml so nothing else hard-codes it

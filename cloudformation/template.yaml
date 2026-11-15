@@ -67,7 +67,7 @@ Resources:
       Role: !GetAtt LambdaRole.Arn
       Timeout: 30
       MemorySize: 256
-      Code: ../src/server
+      Code: ../client/lambdaflow/server
       Environment:
         Variables:
           USER_NAME: !Ref UserName
