@@ -125,8 +125,8 @@ variable "cloudwatch_log_days" {
   default     = 14
 }
 
-variable "python" {
-  description = "Local python used once to build the Lambda layer (jinja2, tzdata) with pip"
-  type        = string
-  default     = "python3"
+variable "force_destroy" {
+  description = "true = destroy removes the DAG files and task logs too (keep your DAGs in git); false = destroy stops at a non-empty bucket"
+  type        = bool
+  default     = true
 }
